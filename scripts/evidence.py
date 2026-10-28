@@ -15,11 +15,15 @@ For each spec, at the merge commit of its day's close (`day-NN/close-the-day`) o
   arguments recorded for it in specs/breaks/day-NN.json, and reports what the line says, temporary
   directory names aside, and a report pasted across lines or with its backslashes undoubled read
   as the escapes break.py printed. A `broken:` line with no recorded arguments fails: prose cannot
-  be re-run.
+  be re-run. A near miss recorded with "passes" must pass with the break in instead, its report
+  the check's last line.
 
 The breaks file is a list of {"what", "file", "find", "replace", "command"}, "what" being the text
 of the `broken:` line before its last arrow, "file" a path from the repository root, and "command"
-an argument list run from that root, `bash` meaning Git's bash on Windows.
+an argument list run from that root, `bash` meaning Git's bash on Windows. Two keys are optional:
+"passes": true for a near miss that passes by design, which break.py does not record (it exits 1),
+and "at": a commit to run the break at instead of the close, when the close no longer has what the
+break edits.
 
 Item 6 of the lab notebook's open items: no step checked the evidence a close ticks a box on. It
 prints one line per check and exits 1 if any failed. It changes no file outside the worktree.
@@ -153,8 +157,18 @@ def normal(report):
     return re.sub(r"\\+", r"\\", report.replace("\n", "\\n"))
 
 
+PASSED = "The check passed with the break in"
+
+
 def run_break(entry, worktree, env):
     """What break.py reported for the recorded break, or why it did not."""
+    if "at" in entry:
+        other = tempfile.mkdtemp(prefix="evidence-")
+        git("worktree", "add", "--detach", other, entry["at"])
+        try:
+            return run_break({k: v for k, v in entry.items() if k != "at"}, other, env)
+        finally:
+            git("worktree", "remove", "--force", other, check=False)
     command = entry["command"]
     if command[0] == "bash":
         command = [bash(), *command[1:]]
@@ -163,6 +177,11 @@ def run_break(entry, worktree, env):
                           "--cwd", worktree, "--", *command],
                          capture_output=True, text=True, encoding="utf-8", errors="replace", env=env)
     lines = (run.stdout + run.stderr).strip().splitlines()
+    if entry.get("passes"):
+        if run.returncode == 0:
+            return None, "failed with the break in: this near miss should pass"
+        if lines and lines[0].startswith(PASSED):
+            return lines[-1].strip()[len("last line: "):], None
     if run.returncode != 0:
         return None, lines[0] if lines else f"break.py exited {run.returncode}"
     return lines[-1][len(f"broken: {entry['what']} → "):], None
