@@ -146,6 +146,24 @@ class EvidenceTest(unittest.TestCase):
         run = self.run_evidence(spec(), breaks=(dict(BREAK, command=check),))
         self.assertEqual(run.returncode, 0, run.stdout)
 
+    def test_a_near_miss_recorded_as_passing_must_pass_and_report_its_last_line(self):
+        check = [sys.executable, "-c", "print('removed=0')"]
+        near = dict(BREAK, command=check, passes=True)
+        run = self.run_evidence(spec(report="removed=0"), breaks=(near,))
+        self.assertEqual(run.returncode, 0, run.stdout)
+        run = self.run_evidence(spec(), breaks=(dict(BREAK, passes=True),))
+        self.assertEqual(run.returncode, 1)
+        self.assertIn("failed with the break in: this near miss should pass", run.stdout)
+
+    def test_a_break_recorded_at_a_commit_runs_there_not_at_the_close(self):
+        check = [sys.executable, "-c", "import os, sys; sys.exit('AssertionError: broken') if 'broken' in "
+                 "open('app.txt').read() and not os.path.exists('close.txt') else None"]
+        run = self.run_evidence(spec(), breaks=(dict(BREAK, command=check),))
+        self.assertIn("passed with the break in", run.stdout)
+        run = self.run_evidence(spec(), breaks=(dict(BREAK, command=check, at=self.base),))
+        self.assertEqual(run.returncode, 0, run.stdout)
+        self.assertEqual(len(self.git("worktree", "list").splitlines()), 1)
+
     def test_a_day_whose_close_has_not_merged_fails(self):
         self.write("specs/day-02-y.md", spec())
         run = subprocess.run([sys.executable, SCRIPT, "specs/day-02-y.md"], cwd=self.repo, env=GIT_ENV,
