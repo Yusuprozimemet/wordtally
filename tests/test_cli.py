@@ -128,6 +128,18 @@ class CliTest(unittest.TestCase):
         r = run_with_input(b"a\r\n" + "éé\n".encode("utf-8"), "-")
         self.assertEqual((r.returncode, r.stdout), (0, "2 1 6 -\n"))
 
+    def test_stopwords_leave_the_top_list_and_only_it(self):
+        with tempfile.TemporaryDirectory() as d:
+            a = write(d, "a.txt", b"The cat and the dog, a cat\n")
+            r = run("--stopwords", "--top", "3", a)
+        self.assertEqual((r.returncode, r.stdout), (0, f" 1  7 27 {a}\n2 cat\n1 dog\n"))
+
+    def test_stopwords_without_top_prints_the_counts_alone(self):
+        with tempfile.TemporaryDirectory() as d:
+            a = write(d, "a.txt", b"The cat and the dog, a cat\n")
+            r = run("--stopwords", a)
+        self.assertEqual((r.returncode, r.stdout), (0, f" 1  7 27 {a}\n"))
+
 
 if __name__ == "__main__":
     unittest.main()
