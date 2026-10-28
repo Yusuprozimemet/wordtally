@@ -1,4 +1,5 @@
-"""python -m wordtally [--top N] FILE...: the lines, words and characters of each file."""
+"""python -m wordtally [--top N] [FILE...]: the lines, words and characters of each file.
+No file, or "-", reads standard input."""
 import argparse
 import sys
 from collections import Counter
@@ -17,19 +18,26 @@ def whole_number(text):
     return n
 
 
+def read(path):
+    # Standard input is read as bytes, as files are, so that no newline is translated.
+    if path == "-":
+        return sys.stdin.buffer.read().decode("utf-8")
+    with open(path, encoding="utf-8", newline="") as f:
+        return f.read()
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="python -m wordtally")
     parser.add_argument("--top", metavar="N", type=whole_number,
                         help="also print the N most frequent words")
-    parser.add_argument("files", nargs="+")
+    parser.add_argument("files", nargs="*", default=["-"])
     args = parser.parse_args(argv)
     rows = []
     tally = Counter()
     failed = False
     for path in args.files:
         try:
-            with open(path, encoding="utf-8", newline="") as f:
-                text = f.read()
+            text = read(path)
         except (OSError, UnicodeDecodeError) as e:
             print(f"wordtally: {path}: {getattr(e, 'strerror', None) or e}", file=sys.stderr)
             failed = True
@@ -37,7 +45,7 @@ def main(argv=None):
             rows.append((counts(text), path))
             if args.top:
                 tally.update(word.lower() for word in words(text))
-    # Files named, not files read: where standard input goes is decided at Day 3's stop.
+    # Files named, not files read: standard input counts as a file named -, as Day 3's stop decided.
     if len(args.files) > 1:
         total = tuple(sum(c[i] for c, _ in rows) for i in range(3))
         rows.append((total, "total"))
