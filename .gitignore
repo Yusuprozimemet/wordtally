@@ -1,0 +1,3 @@
+# --- dashboard: what scripts/spec-drift.py read from git, kept between runs ---
+.spec-drift-cache.json
+__pycache__/
