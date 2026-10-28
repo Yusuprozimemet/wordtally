@@ -1,4 +1,5 @@
 """The command line, run as a user runs it."""
+import json
 import os
 import subprocess
 import sys
@@ -139,6 +140,47 @@ class CliTest(unittest.TestCase):
             a = write(d, "a.txt", b"The cat and the dog, a cat\n")
             r = run("--stopwords", a)
         self.assertEqual((r.returncode, r.stdout), (0, f" 1  7 27 {a}\n"))
+
+    def test_json_prints_the_counts_as_one_object(self):
+        r = run_with_input(b"The cat and the dog, a cat\n", "--json", "--stopwords", "--top", "3")
+        self.assertEqual((r.returncode, r.stdout),
+                         (0, '{"files": [{"name": "-", "lines": 1, "words": 7, "characters": 27}], '
+                             '"top": [{"word": "cat", "count": 2}, {"word": "dog", "count": 1}]}\n'))
+
+    def test_json_matches_the_plain_output(self):
+        with tempfile.TemporaryDirectory() as d:
+            a = write(d, "a.txt", b"the cat\n")
+            b = write(d, "b.txt", b"the dog sat\n")
+            r_json = run("--json", "--top", "2", a, b)
+            r_plain = run("--top", "2", a, b)
+        self.assertEqual((r_json.returncode, r_plain.returncode), (0, 0))
+        self.assertEqual(r_json.stdout.count("\n"), 1)
+        # Plain rows: the two files, then the total, then the top words.
+        lines = r_plain.stdout.splitlines()
+        files = []
+        for line in lines[:2]:
+            n, w, c, name = line.lstrip().split(None, 3)
+            files.append({"name": name, "lines": int(n), "words": int(w), "characters": int(c)})
+        n, w, c, _ = lines[2].lstrip().split(None, 3)
+        total = {"lines": int(n), "words": int(w), "characters": int(c)}
+        top = [{"word": word, "count": int(count)}
+               for count, word in (line.split(None, 1) for line in lines[3:])]
+        obj = json.loads(r_json.stdout)
+        self.assertEqual(obj["files"], files)
+        self.assertEqual(obj["total"], total)
+        self.assertEqual(obj["top"], top)
+
+    def test_json_leaves_out_a_file_that_cannot_be_read(self):
+        with tempfile.TemporaryDirectory() as d:
+            a = write(d, "a.txt", b"one two three\n")
+            missing = os.path.join(d, "missing.txt")
+            r = run("--json", missing, a)
+        self.assertEqual(r.returncode, 1)
+        self.assertIn(missing, r.stderr)
+        self.assertNotIn("Traceback", r.stderr)
+        self.assertEqual(json.loads(r.stdout),
+                         {"files": [{"name": a, "lines": 1, "words": 3, "characters": 14}],
+                          "total": {"lines": 1, "words": 3, "characters": 14}})
 
 
 if __name__ == "__main__":
