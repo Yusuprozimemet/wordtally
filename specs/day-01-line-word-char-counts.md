@@ -132,13 +132,13 @@ The last command, with the directory shown as D:
   word rule and decoded characters, and how lines, the widths, read errors and the total are
   counted; the plan-auditor found six readings that differ on today's code. Settled in this spec,
   in this PR.
-- **Defect** — found: auditor · cause: spec · made: none · the first draft had the tests write
+- **Defect** — found: auditor · cause: spec · made: Day 01 · the first draft had the tests write
   their files in text mode, as `test_each_file_prints_its_word_count_and_name` does; on Windows
   that writes CRLF, so C1.1–C1.5 would have failed locally and passed on CI's Linux. The spec now
   says bytes; fixed in this PR.
-- **Defect** — found: auditor · cause: spec · made: none · the first draft's C1.4 said GNU `wc`
+- **Defect** — found: auditor · cause: spec · made: Day 01 · the first draft's C1.4 said GNU `wc`
   prints 14 characters for x.txt; `wc -m` prints 13, only bytes are 14. Fixed in this PR.
-- **Defect** — found: spec-change PR · cause: process · made: none · the first draft recorded C1.9's break
+- **Defect** — found: spec-change PR · cause: process · made: Day 01 · the first draft recorded C1.9's break
   as "FAILED (failures=1)" before running it; `scripts/break.py` reported the assertion line, now
   recorded. Fixed in this PR, before the spec-auditor ran.
 - **Hand-off** H1.1 → Day 2: C1.8's usage error, and `test_no_file_is_a_usage_error` with it,
@@ -146,7 +146,7 @@ The last command, with the directory shown as D:
 - **Hand-off** H1.2 → Day 3: the stop decides whether standard input counts in the total; Day 3's
   spec cites this and says where the `--top` lines go relative to the total line, and how ties
   are ordered.
-- **Defect** — found: self · cause: process · made: none · Track A's break on purpose was first
+- **Defect** — found: self · cause: process · made: Day 01 · Track A's break on purpose was first
   run with "→" in `scripts/break.py`'s `--what`; the dashboard's `broken:` pattern splits at the
   first arrow, so the line would have been cut short. Run again without it before #4 opened.
 - **Defect** — found: close · cause: process · made: Day 01 · two `broken:` lines this day's spec
