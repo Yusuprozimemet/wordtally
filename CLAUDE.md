@@ -138,7 +138,37 @@ implementer never commits or pushes.
 
 ## Pitfalls this repository has already hit
 
-None yet.
+On Windows, in Git Bash and PowerShell:
+
+- The working tree is CRLF (`core.autocrlf`). Exact-string edits from Python fail on it: use the
+  Edit tool, or normalise CRLF and write the ending back. A test that writes a file writes bytes
+  (`"wb"`): text mode adds a carriage return and changes every character count (Day 1, PR #1).
+- Long heredocs break in Git Bash, and PowerShell has none. Write commit messages and PR bodies
+  to a scratch file (`git commit -F`, `gh pr create --body-file`); give the maintainer one-line
+  commands, with any JSON in a file (`gh api --input <file>`).
+- The Write tool will not overwrite a file this session has not read, even one a shell made.
+
+Breaks on purpose:
+
+- Run them with `PYTHONDONTWRITEBYTECODE=1` and every `__pycache__` deleted; name the exact test
+  (`tests.test_cli.CliTest.<name>`); check that the run FAILED, since `errors=1` proves nothing.
+- Run the break, then copy its `broken:` line from what `scripts/break.py` printed. Day 1's first
+  draft wrote one before running it, and the report differed.
+- On a `git diff --exit-code` check, run `git -c core.safecrlf=false diff ...`, or `break.py`
+  reports git's CRLF warning as the check's line.
+
+The dashboard script and the PR checks:
+
+- `scripts/spec-drift.py` reads `main` by name: on a branch it shows `main`. To see a branch's
+  effect, clone into a scratch directory, merge the branch with `--no-ff`, and run there. Pass
+  `--cache <scratch>/c.json` by hand; `--build` and `--out` do not go together. Its output holds
+  an en dash: grep it with `grep -a`.
+- In a spec, put in backticks only identifiers, paths and commands; quote literal output. The gap
+  reads backticked snake_case and camelCase names as code.
+- Before pushing: `PR_BRANCH=<branch> PR_TITLE="<title>" python scripts/pr-names.py main HEAD`,
+  `git diff --numstat main...HEAD`, and `python scripts/check-links.py` on each Markdown file
+  touched. Re-read the PR body's counts and `broken:` lines. Never force-push without the
+  maintainer's OK.
 
 ## Commits and pull requests
 
