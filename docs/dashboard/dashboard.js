@@ -1,4 +1,4 @@
-// The migration dashboard. scripts/spec-drift.py writes the data line that calls start().
+// The spec-drift dashboard. scripts/spec-drift.py writes the data line that calls start().
 function boot(DATA) {
 const R = DATA.rows;
 const N = R.length;
@@ -90,7 +90,7 @@ document.getElementById("stats").innerHTML = `
   <div class="stat"><span class="k">Share of the gap closed by the spec</span>
     <span class="v num">${ofGap(byKind.spec)}</span>
     <span class="n"><span class="sw" style="background:var(--spec)"></span>${nKind("spec")} spec-change PRs ${specShare >= 0 ? "moved the spec toward the code" : "widened the gap, naming what was not built yet"}; <span class="sw" style="background:var(--code)"></span>${nKind("code")} code PRs closed ${ofGap(byKind.code)}</span></div>
-  <div class="stat"><span class="k">Spec text since Sep 20</span>
+  <div class="stat"><span class="k">Spec text since ${shortDate(R[0].date)}</span>
     <span class="v num">−${last.deleted} <small>/ +${last.added} lines</small></span>
     <span class="n">of ${DATA.origin_lines} lines as written: ${Math.round(last.deleted / DATA.origin_lines * 100)}% rewritten, the rest kept</span></div>`;
 document.getElementById("headline").textContent = specShare >= -byKind.code / gapClosed
@@ -189,10 +189,12 @@ function dateStarts() {
   return R.map((r, i) => [i, r.date]).filter(([i, s]) => !i || R[i - 1].date !== s);
 }
 const steps = (lo, hi, n) => Array.from({ length: n + 1 }, (_, i) => +(lo + (hi - lo) * i / n).toFixed(1));
+// The out-of-order days that have a merge: one not run yet has no day label for a * to mark.
+const oooRun = () => [...OOO].filter(d => R.some(r => r.day === d)).sort((a, b) => rank(a) - rank(b));
 // The key to the * on a day label, under any axis that draws day labels; there is none when no day ran out of order.
 function oooNote(box) {
-  if (!OOO.size) return;
-  const days = [...OOO].sort((a, b) => rank(a) - rank(b));
+  const days = oooRun();
+  if (!days.length) return;
   box.insertAdjacentHTML("beforeend", `<p class="axis-note">* Day run out of number order: ${days.map(d => "D" + dd(d)).join(", ")}.</p>`);
 }
 // bands: [{ color, get: r => [lo, hi] }], shaded under the lines.
@@ -263,7 +265,7 @@ const degMax = Math.ceil(Math.max(...R.map(r => Math.max(r.gap_full || 0, (r.gap
 const covMin = Math.min(92, Math.floor(Math.min(...R.filter(r => r.coverage != null).map(r => r.coverage * 100)) / 2) * 2);
 function drawLines() {
   // The legend's sample is this repository's first out-of-order day, and there is no key when none ran out of order.
-  const key = document.getElementById("ooo-key"), first = [...OOO].sort((a, b) => rank(a) - rank(b))[0];
+  const key = document.getElementById("ooo-key"), first = oooRun()[0];
   if (key) { if (first == null) key.style.display = "none"; else key.querySelector("b").textContent = "D" + dd(first) + "*"; }
   lineChart(document.getElementById("lines"), {
     H: 330, yMin: 0, yMax: degMax, ticks: steps(0, degMax, degMax / 15), unit: "°", strip: true,
@@ -313,9 +315,9 @@ function drawLines() {
     ],
   });
   const p = R[sel].placed || {};
-  document.getElementById("placed").innerHTML = `<p>At ${prLabel(R[sel])}: ` + Object.keys(p).sort().map(s =>
+  document.getElementById("placed").innerHTML = `<p>At ${prLabel(R[sel])}: ` + (Object.keys(p).sort().map(s =>
     `<b>${s}</b> ${p[s][1] ? (p[s][0] ? `${p[s][1]} lines out, ${p[s][0]} still in place` : `out (${p[s][1]} lines)`) : `in place (${p[s][0]} lines)`}`).join(" · ")
-    + "</p>";
+    || "no service code.") + "</p>";
 }
 const movedShare = r => {
   const v = Object.values(r.placed || {}), all = v.reduce((a, [i, o]) => a + i + o, 0);
@@ -561,7 +563,7 @@ function drawFindings() {
   const days = DATA.days.filter(finished).length;
   const f = [
     [last.deleted < DATA.origin_lines / 2 ? "Most of the plan as written still stands" : "Most of the plan as written has been rewritten",
-     `${days} days in, ${Math.round(last.deleted / DATA.origin_lines * 100)}% of the Sep 20 spec's lines have been rewritten, and ${last.added} lines added.`],
+     `${days} days in, ${Math.round(last.deleted / DATA.origin_lines * 100)}% of the ${shortDate(R[0].date)} spec's lines have been rewritten, and ${last.added} lines added.`],
     [specShare >= codeShare ? "The spec moved toward the code, not the reverse" : "The code now closes more of the gap than the spec",
      `Of the ${fmt(gapClosed)}° of gap that closed, ${Math.round(specShare * 100)}% came from ${nKind("spec")} spec-change PRs and ${Math.round(codeShare * 100)}% from ${nKind("code")} code PRs.`],
     [covFloor >= 90 ? "Spec first keeps the gap from ever opening" : "The gap opened at least once",
@@ -714,7 +716,8 @@ function drawEvidence() {
   const chip = c => `<span class="chip" style="color:${REMOVAL[c.now][1]}">${c.now === "found" ? `${c.n} line${c.n === 1 ? "" : "s"}` : c.now === "empty" ? "reads no files" : "clean"}</span>`;
   const found = c => c.found.length ? `<tr class="found"><td></td><td colspan="5"><ul>${c.found.map(f =>
     `<li><code>${esc(f.path)}:${f.line}</code> ${esc(f.text)}</li>`).join("")}${c.n > c.found.length ? `<li>and ${c.n - c.found.length} more</li>` : ""}</ul></td></tr>` : "";
-  document.getElementById("removals").innerHTML = `<thead><tr><th>Day</th><th>Check</th><th>From</th><th>On main</th><th class="r">Files read</th><th>Since</th></tr></thead><tbody>` +
+  document.getElementById("removals").innerHTML = !removals.length
+    ? `<tbody><tr><td>None: no finished day's criteria or Verify name a grep that must print nothing.</td></tr></tbody>` : `<thead><tr><th>Day</th><th>Check</th><th>From</th><th>On main</th><th class="r">Files read</th><th>Since</th></tr></thead><tbody>` +
     removals.map(c => `<tr><td class="num">${dd(c.day)}</td><td class="t"><code>${esc(c.cmd)}</code></td><td class="num">${esc(c.base)}</td><td>${chip(c)}</td><td class="r num">${c.reads}</td>` +
       `<td class="num" title="${esc(R[c.from].title || "")}">${prLabel(R[c.from])}${c.from === c.since ? " · day end" : ""}</td></tr>${found(c)}`).join("") + "</tbody>";
 }
