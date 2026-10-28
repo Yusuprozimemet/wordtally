@@ -113,6 +113,10 @@ implementer never commits or pushes.
   line: one exact replacement, the file's bytes put back, the command run without a shell, Maven
   only with `clean`. Hand-run breaks here have half-applied, skipped the compile, never started
   Maven, and lost unstaged work.
+- A `new` criterion's tests must also fail on the code before the day. In a track that adds them,
+  run `python scripts/seen-red.py -- python -m unittest discover -s tests -t .`: it runs the
+  branch's tests on `main`'s code in a scratch worktree and prints `seen red: ... → <what it
+  reported>` for the PR. Exit 1 means they pass there. A Note was not enough: #15 and #18 skipped it.
 - The PR diff must stay under **400 changed lines** (CI: "Diff stays reviewable"). If it does not,
   split the PR along a line where each part stands alone. An `Oversized:` line in the
   description turns the failure into a warning. Used: none yet. `main` is protected, so the check must
