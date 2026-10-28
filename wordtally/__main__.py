@@ -1,6 +1,7 @@
-"""python -m wordtally [--top N] [--stopwords] [FILE...]: the lines, words and characters of each file.
+"""python -m wordtally [--top N] [--stopwords] [--json] [FILE...]: the lines, words and characters of each file.
 No file, or "-", reads standard input."""
 import argparse
+import json
 import os
 import sys
 from collections import Counter
@@ -39,6 +40,8 @@ def main(argv=None):
                         help="also print the N most frequent words")
     parser.add_argument("--stopwords", action="store_true",
                         help="leave common English words out of the --top list")
+    parser.add_argument("--json", action="store_true",
+                        help="print the counts as one JSON object")
     parser.add_argument("files", nargs="*", default=["-"])
     args = parser.parse_args(argv)
     rows = []
@@ -55,16 +58,26 @@ def main(argv=None):
             rows.append((counts(text), path))
             if args.top:
                 tally.update(w for w in map(str.lower, words(text)) if w not in common)
+    files = list(rows)
     # Files named, not files read: standard input counts as a file named -, as Day 3's stop decided.
     if len(args.files) > 1:
         total = tuple(sum(c[i] for c, _ in rows) for i in range(3))
         rows.append((total, "total"))
+    top = sorted(tally.items(), key=lambda kv: (-kv[1], kv[0]))[:args.top] if args.top else []
+    if args.json:
+        obj = {"files": [{"name": name, "lines": c[0], "words": c[1], "characters": c[2]}
+                         for c, name in files]}
+        if len(args.files) > 1:
+            obj["total"] = {"lines": total[0], "words": total[1], "characters": total[2]}
+        if args.top:
+            obj["top"] = [{"word": word, "count": count} for word, count in top]
+        print(json.dumps(obj))
+        return 1 if failed else 0
     width = max((len(str(n)) for c, _ in rows for n in c), default=1)
     for c, name in rows:
         print(" ".join(str(n).rjust(width) for n in c) + f" {name}")
-    if args.top:
-        for word, count in sorted(tally.items(), key=lambda kv: (-kv[1], kv[0]))[:args.top]:
-            print(f"{count} {word}")
+    for word, count in top:
+        print(f"{count} {word}")
     return 1 if failed else 0
 
 
