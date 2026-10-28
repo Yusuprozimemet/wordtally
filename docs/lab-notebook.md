@@ -30,7 +30,7 @@ total line when two or more files are named, and one stderr line per file it can
 | Do day-sized estimates hold for agent-implemented work? | Estimated vs actual pull requests per spec (currently 3→3) |
 | Does the word rule survive the days unedited? | Lines changed in `tests/contract/` (currently 0, Day 1) |
 | How much of the implementer's work is redone? | Tracks the main session rewrote beyond review fixes, of the tracks the implementer wrote (currently 0 of 1) |
-| Where are defects caught? | Defect lines by `found:` (currently Day 1: 3 auditor, 2 self, 1 close; 0 escapes from an earlier day) |
+| Where are defects caught? | Defect lines by `found:` (currently Day 1: 3 auditor, 1 spec-change PR, 1 self, 1 close; 0 escapes from an earlier day) |
 | Does a blind reader tag defects the same way? | `relabel.py compare` disagreements per day (Day 1: in its closing PR) |
 
 ## Retrospective

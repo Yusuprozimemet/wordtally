@@ -138,7 +138,7 @@ The last command, with the directory shown as D:
   says bytes; fixed in this PR.
 - **Defect** — found: auditor · cause: spec · made: none · the first draft's C1.4 said GNU `wc`
   prints 14 characters for x.txt; `wc -m` prints 13, only bytes are 14. Fixed in this PR.
-- **Defect** — found: self · cause: process · made: none · the first draft recorded C1.9's break
+- **Defect** — found: spec-change PR · cause: process · made: none · the first draft recorded C1.9's break
   as "FAILED (failures=1)" before running it; `scripts/break.py` reported the assertion line, now
   recorded. Fixed in this PR, before the spec-auditor ran.
 - **Hand-off** H1.1 → Day 2: C1.8's usage error, and `test_no_file_is_a_usage_error` with it,
