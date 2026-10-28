@@ -786,7 +786,7 @@ function drawConclusion() {
 }
 
 /* ---------- tokens ---------- */
-const MODEL_VAR = { "claude-opus-5-5": "var(--m-opus)", "claude-opus-5": "var(--m-opus-prev)", "claude-sonnet-5": "var(--m-sonnet)", "claude-haiku-4-5": "var(--m-haiku)" };
+const MODEL_VAR = { "claude-opus-5-5": "var(--m-opus)", "claude-opus-5": "var(--m-opus-prev)", "claude-sonnet-5": "var(--m-sonnet)", "claude-haiku-4-5": "var(--m-haiku)", "claude-haiku-5-5": "var(--m-haiku)" };
 const modelName = m => m.replace(/^claude-/, "").replace(/^(\w)(\w*)-/, (_, a, b) => a.toUpperCase() + b + " ").replace(/-/g, ".");
 const kilo = n => n >= 1e6 ? fmt(n / 1e6, 2) + "M" : n >= 1e3 ? fmt(n / 1e3, 0) + "k" : String(n);
 function drawTokens() {
@@ -801,11 +801,13 @@ function drawTokens() {
   const color = m => MODEL_VAR[m] || "var(--other)";
   document.getElementById("token-legend").innerHTML = models.map(m =>
     `<span><i class="dot" style="background:${color(m)}"></i>${esc(modelName(m))} · ${kilo(sum(T.filter(r => r.model === m), "output"))}</span>`).join("");
-  // The log counts by model, not by agent; the implementer is the one agent on Haiku, so its share is the Haiku rows.
-  const haiku = T.filter(r => /haiku/.test(r.model)), pct = (a, b) => fmt(b ? a / b * 100 : 0, 1) + "%";
-  document.getElementById("token-implementer").innerHTML = haiku.length
-    ? `<b>The implementer</b> (Haiku, which writes the track code from a brief) used <b>${pct(ctx(haiku), ctx(T))}</b> of the context read (${kilo(ctx(haiku))} of ${kilo(ctx(T))}) and <b>${pct(sum(haiku, "output"), sum(T, "output"))}</b> of the output (${kilo(sum(haiku, "output"))} of ${kilo(sum(T, "output"))}). The main sessions (specs, audits, review, the breaks on purpose, the pull requests) used the rest. Counted by model: any other Haiku reply would count here too.`
+  const pct = (a, b) => fmt(b ? a / b * 100 : 0, 1) + "%";
+  const who = r => r.agent || "unknown";
+  const impl = T.filter(r => who(r) === "implementer"), main = T.filter(r => who(r) === "main");
+  document.getElementById("token-implementer").innerHTML = impl.length
+    ? `<b>The implementer</b> (which writes the track code from a brief) used <b>${pct(ctx(impl), ctx(T))}</b> of the context read (${kilo(ctx(impl))} of ${kilo(ctx(T))}) and <b>${pct(sum(impl, "output"), sum(T, "output"))}</b> of the output (${kilo(sum(impl, "output"))} of ${kilo(sum(T, "output"))}); the main sessions (specs, review, the breaks on purpose, the pull requests) <b>${pct(sum(main, "output"), sum(T, "output"))}</b> of the output; the checking agents the rest.`
     : "";
+  drawAgents(T, sum, ctx, perReply, color);
   const dates = [...new Set(T.map(r => r.date))].sort();
   const H = 260, P = { l: 56, r: 12, t: 12, b: 46 }, bw = (LW - P.l - P.r) / dates.length;
   const perDate = dates.map(d => T.filter(r => r.date === d));
@@ -847,6 +849,52 @@ function drawTokens() {
     }).join("") + "</tbody>";
 }
 
+// One bar per agent, longest first, coloured by the model it ran on (the legend above names them).
+function drawAgents(T, sum, ctx, perReply, color) {
+  const box = document.getElementById("token-agents");
+  const agents = [...new Set(T.map(r => r.agent || "unknown"))]
+    .map(a => ({ a, rs: T.filter(r => (r.agent || "unknown") === a) }))
+    .map(o => ({ ...o, out: sum(o.rs, "output"), model: [...new Set(o.rs.map(r => r.model))] }))
+    .sort((x, y) => y.out - x.out);
+  if (!agents.length) { box.innerHTML = ""; return; }
+  const RH = 30, P = { l: 210, r: 70, t: 4, b: 4 }, H = P.t + P.b + RH * agents.length;
+  const top = agents[0].out, lx = v => P.l + v / top * (LW - P.l - P.r);
+  box.innerHTML = "";
+  const svg = el("svg", { viewBox: `0 0 ${LW} ${H}`, role: "img", "aria-label": "Output tokens by agent" }, box);
+  agents.forEach((o, i) => {
+    const y = P.t + i * RH;
+    el("text", { x: P.l - 10, y: y + RH / 2 + 4, "text-anchor": "end" }, svg).textContent = o.a === "main" ? "main sessions" : o.a;
+    let x = P.l;
+    o.model.forEach(m => {
+      const v = sum(o.rs.filter(r => r.model === m), "output");
+      el("rect", { x, y: y + 7, width: Math.max(1, lx(v) - P.l), height: RH - 14, rx: 3, fill: color(m) }, svg);
+      x += lx(v) - P.l;
+    });
+    el("text", { x: x + 8, y: y + RH / 2 + 4, class: "num" }, svg).textContent = kilo(o.out);
+    const hit = el("rect", { x: 0, y, width: LW, height: RH, fill: "transparent" }, svg);
+    hit.addEventListener("mousemove", ev => showTip(ev, `<b>${esc(o.a === "main" ? "main sessions" : o.a)}</b>
+      <div class="row"><span>model</span><span>${o.model.map(m => esc(modelName(m))).join(", ")}</span></div>
+      <div class="row"><span>output</span><span>${kilo(o.out)}</span></div>
+      <div class="row"><span>input + cache</span><span>${kilo(ctx(o.rs))}</span></div>
+      <div class="row"><span>context per reply</span><span>${perReply(o.rs)}</span></div>
+      <div class="row"><span>replies</span><span>${sum(o.rs, "replies")}</span></div>`));
+    hit.addEventListener("mouseleave", hideTip);
+  });
+}
+
+// Per finished day, how many tags the blind defect-rater gave the same way; null where the Notes have no counts.
+function drawRelabel() {
+  const days = DATA.days.filter(finished).sort((a, b) => rank(a.day) - rank(b.day));
+  const F = ["stage", "cause", "made"];
+  const cell = p => !p ? `<td class="r pre">–</td>`
+    : `<td class="r"><span class="meter"><i style="width:${p[0] / p[1] * 100}%"></i></span>${p[0]} of ${p[1]}</td>`;
+  const tot = F.map(f => days.reduce((a, d) => d.relabel && d.relabel[f] ? [a[0] + d.relabel[f][0], a[1] + d.relabel[f][1]] : a, [0, 0]));
+  document.getElementById("relabel").innerHTML = `<thead><tr><th>Day</th>${F.map(f => `<th class="r">${f[0].toUpperCase() + f.slice(1)}</th>`).join("")}<th>Title</th></tr></thead><tbody>` +
+    days.map(d => `<tr><td class="num">${dd(d.day)}</td>${d.relabel ? F.map(f => cell(d.relabel[f])).join("")
+      : `<td class="r pre" colspan="3">not counted: the Notes give no counts</td>`}<td class="t">${md(d.title)}</td></tr>`).join("") +
+    `<tr><td><b>All counted</b></td>${tot.map(p => cell(p[1] ? p : null)).join("")}<td></td></tr></tbody>`;
+}
+
 // The infra workflow's last summary on main (scripts/infra-summary.py), and each of its runs on main.
 function drawInfra() {
   const I = DATA.infra || { runs: [], latest: null }, L = I.latest, S = L ? L.summary : {};
@@ -883,7 +931,7 @@ function drawDeployment() {
 }
 
 panel("today", drawNow); panel("work-bar", drawWork); panel("perday", drawPerDay); panel("breaks", drawVerification);
-panel("infra-head", drawInfra); panel("deployment-head", drawDeployment); panel("token-bars", drawTokens);
+panel("infra-head", drawInfra); panel("deployment-head", drawDeployment); panel("token-bars", drawTokens); panel("relabel", drawRelabel);
 panel("evidence-gaps", drawEvidence); panel("hand-offs", drawHandOffs); panel("read", drawConclusion);
 panel("findings", drawFindings); panel("tbl", drawTable); setSel(sel);
 }

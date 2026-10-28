@@ -1,4 +1,4 @@
-"""Count the Claude Code tokens spent on this repository, per date, migration day and model.
+"""Count the Claude Code tokens spent on this repository, per date, migration day, model and agent.
 
 Reads the session transcripts Claude Code keeps on this machine (~/.claude/projects/<this
 repository's path>, subagents included) and writes totals only, no prompt or reply text, to
@@ -41,10 +41,23 @@ def transcripts(root):
             yield from glob.glob(os.path.join(folder, "**", "*.jsonl"), recursive=True)
 
 
+def agent(path):
+    # A subagent's transcript, subagents/agent-<id>.jsonl, has its type in agent-<id>.meta.json beside it.
+    meta = path[:-len(".jsonl")] + ".meta.json"
+    if os.path.basename(os.path.dirname(path)) != "subagents":
+        return "main"
+    try:
+        with open(meta, encoding="utf-8") as f:
+            return json.load(f).get("agentType") or "unknown"
+    except (OSError, ValueError):
+        return "unknown"
+
+
 def count(files):
     # The usage is complete only on a reply's last line, so the last line per key overwrites the others.
     replies, totals = {}, collections.defaultdict(lambda: dict.fromkeys(FIELDS, 0))
     for path in files:
+        who = agent(path)
         with open(path, encoding="utf-8") as f:
             for line in f:
                 try:
@@ -56,14 +69,14 @@ def count(files):
                 model = msg and DATED.sub("", msg.get("model") or "")
                 if not usage or not model.startswith("claude"):
                     continue
-                replies[(msg.get("id"), entry.get("requestId"))] = entry
-    for entry in replies.values():
+                replies[(msg.get("id"), entry.get("requestId"))] = (who, entry)
+    for who, entry in replies.values():
         msg = entry["message"]
         usage = msg["usage"]
         model = DATED.sub("", msg.get("model") or "")
         when = datetime.datetime.fromisoformat(entry["timestamp"].replace("Z", "+00:00"))
         day = DAY_BRANCH.match(entry.get("gitBranch") or "")
-        t = totals[(when.astimezone().date().isoformat(), int(day.group(1)) if day else None, model)]
+        t = totals[(when.astimezone().date().isoformat(), int(day.group(1)) if day else None, model, who)]
         t["input"] += usage.get("input_tokens", 0)
         t["cache_write"] += usage.get("cache_creation_input_tokens", 0)
         t["cache_read"] += usage.get("cache_read_input_tokens", 0)
@@ -81,11 +94,11 @@ def main():
     if os.path.exists(args.out):
         with open(args.out, encoding="utf-8") as f:
             for r in json.load(f):
-                t = totals[(r["date"], r["day"], r["model"])]
+                t = totals[(r["date"], r["day"], r["model"], r["agent"])]
                 for k in FIELDS:
                     t[k] = max(t[k], r[k])
-    rows = [dict(date=d, day=n, model=m, **t) for (d, n, m), t in totals.items()]
-    rows.sort(key=lambda r: (r["date"], r["day"] or 0, r["model"]))
+    rows = [dict(date=d, day=n, model=m, agent=a, **t) for (d, n, m, a), t in totals.items()]
+    rows.sort(key=lambda r: (r["date"], r["day"] or 0, r["model"], r["agent"]))
     with open(args.out, "w", encoding="utf-8", newline="\n") as f:
         f.write("[\n" + ",\n".join(json.dumps(r, separators=(",", ":")) for r in rows) + "\n]\n")
     out = sum(r["output"] for r in rows)

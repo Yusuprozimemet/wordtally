@@ -305,6 +305,21 @@ def broken_at_close(day):
             if c["ticked"] and closing and c["broke_in"] and set(c["broke_in"]) <= closing]
 
 
+RELABEL = re.compile(r"relabel\.py compare`\)?:?\s*([^`]{0,120})")
+RELABEL_FIELD = re.compile(r"\b(stage|cause|made)\s+(\d+)\s+of\s+(\d+)")
+
+
+def relabel(text):
+    """How often the blind defect-rater agreed with the tags the close gave, as the spec's Notes
+    quote `relabel.py compare` ("stage 3 of 4, cause 3 of 4, made 4 of 4"), or None where the
+    Notes tell it in prose: those days are not counted, not counted as agreeing."""
+    for m in RELABEL.finditer(text):
+        found = {f: [int(a), int(n)] for f, a, n in RELABEL_FIELD.findall(m.group(1))}
+        if found:
+            return found
+    return None
+
+
 def break_state(body, number):
     """What a PR description says about breaking the code on purpose: "recorded", "none" (only
     `broken: none → <why>`), "silent", or "not measured" for a PR from before the line."""
@@ -846,7 +861,7 @@ def roadmap(snaps, prs, blobs):
                          worked=[worked[0], worked[-1]] if worked else None,
                          evidence_format=in_evidence_format(ev),
                          break_format=any(p["number"] >= BREAK_LINE_FROM_PR for p in mine),
-                         evidence=ev, removal_checks=removal_checks(text)))
+                         evidence=ev, removal_checks=removal_checks(text), relabel=relabel(text)))
         days[-1]["broken_at_close"] = broken_at_close(days[-1])
     order, stop = run_order(blobs.read(head, "plan.md"), [d["day"] for d in days])
     return evidence(settle(days, order), snaps, blobs), order, stop

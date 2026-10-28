@@ -131,6 +131,14 @@
     <div class="scroll-x" id="heat"></div>
   </section>
 
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Does a second reader agree with the defect tags?</h2>
+      <p>At each close, <code>scripts/relabel.py</code> strips the <code>found:</code>, <code>cause:</code> and <code>made:</code> tags from the day's Defect lines, and the defect-rater agent, which wrote none of the day's work, tags the text again. This is how many of the day's tags it gave the same way, as the spec's Notes quote <code>relabel.py compare</code>. Where they agree the tags measure the defects; where they do not, the tags may only measure what the session that wrote them believed. Days whose Notes give no counts (Day 1 does not mention the comparison; Day 3 tells it in prose) are not counted.</p>
+    </div>
+    <div class="scroll-x"><table id="relabel"></table></div>
+  </section>
+
   <section class="panel" id="infra">
     <div class="panel-head">
       <h2>Infrastructure, as CI last checked it</h2>
@@ -159,8 +167,13 @@
       <p>Output tokens Claude Code wrote each day on this repository, stacked by model, subagents included. Counted from the session transcripts on the maintainer's machine by <code>scripts/token-usage.py</code>, which only records totals; sessions run elsewhere are not in it. The table splits the same replies by the day whose branch they ran on. Under each bar, and in the table, is the context per reply: how much of the conversation each reply re-read. It falls when sessions are kept short, and it drives most of the cost.</p>
     </div>
     <div class="legend" id="token-legend"></div>
-    <p id="token-implementer"></p>
     <div id="token-bars"></div>
+    <div class="panel-head" style="margin-top:14px">
+      <h2 style="font-size:17px">Who spent them</h2>
+      <p>The same output tokens by agent: the main sessions, and each subagent by its type, from the <code>.meta.json</code> Claude Code writes beside a subagent's transcript. The auditors and the defect-rater check work they did not write; the implementer writes the track code from a brief. Hover a bar for the context it read.</p>
+    </div>
+    <p id="token-implementer"></p>
+    <div id="token-agents"></div>
     <div class="scroll-x"><table id="token-days"></table></div>
   </section>
 
