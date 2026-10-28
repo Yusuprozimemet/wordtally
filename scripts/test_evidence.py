@@ -128,6 +128,24 @@ class EvidenceTest(unittest.TestCase):
         run = self.run_evidence(spec(report=report), breaks=(dict(BREAK, command=check),))
         self.assertEqual(run.returncode, 0, run.stdout)
 
+    def test_an_arrow_inside_what_was_broken_is_part_of_it(self):
+        what = "the ok (ok → broken)"
+        run = self.run_evidence(spec().replace("the ok removed", what), breaks=(dict(BREAK, what=what),))
+        self.assertEqual(run.returncode, 0, run.stdout)
+
+    def test_a_report_recorded_across_lines_with_its_backslashes_undoubled_is_the_same(self):
+        report = "AssertionError: 'C:\\x\n'"  # as Day 1 pasted it: \\ as \, \n as a new line
+        check = [sys.executable, "-c", "import sys; sys.exit(\"AssertionError: 'C:\\\\\\\\x\\\\n'\")"]
+        run = self.run_evidence(spec(report=report), breaks=(dict(BREAK, command=check),))
+        self.assertEqual(run.returncode, 0, run.stdout)
+        run = self.run_evidence(spec(report=report.replace("x", "y")), breaks=(dict(BREAK, command=check),))
+        self.assertEqual(run.returncode, 1, run.stdout)
+
+    def test_a_bash_command_runs_in_git_s_bash(self):
+        check = ["bash", "-c", "grep -qx ok app.txt || { echo 'AssertionError: broken'; exit 1; }"]
+        run = self.run_evidence(spec(), breaks=(dict(BREAK, command=check),))
+        self.assertEqual(run.returncode, 0, run.stdout)
+
     def test_a_day_whose_close_has_not_merged_fails(self):
         self.write("specs/day-02-y.md", spec())
         run = subprocess.run([sys.executable, SCRIPT, "specs/day-02-y.md"], cwd=self.repo, env=GIT_ENV,

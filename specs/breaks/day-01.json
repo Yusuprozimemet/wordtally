@@ -1,0 +1,6 @@
+[
+  {"what": "the total's condition in `wordtally/__main__.py` (files named to files counted, `len(paths)` to `len(rows)`)", "file": "wordtally/__main__.py", "find": "if len(paths) > 1:", "replace": "if len(rows) > 1:", "command": ["python", "-m", "unittest", "tests.test_cli.CliTest.test_a_missing_file_is_reported_and_the_rest_counted"]},
+  {"what": "the no-file check in `wordtally/__main__.py` (if not paths: → if False:)", "file": "wordtally/__main__.py", "find": "if not paths:", "replace": "if False:", "command": ["python", "-m", "unittest", "tests.test_cli.CliTest.test_no_file_is_a_usage_error"]},
+  {"what": "`WORD` in `wordtally/count.py` without the apostrophe", "file": "wordtally/count.py", "find": "[A-Za-z0-9']+", "replace": "[A-Za-z0-9]+", "command": ["python", "-m", "unittest", "tests.contract.test_word_rule.WordRuleTest.test_an_apostrophe_stays_inside_a_word"]},
+  {"what": "one expected value in `tests/contract/test_word_rule.py` (66 → 67)", "file": "tests/contract/test_word_rule.py", "find": "[\"route\", \"66\"]", "replace": "[\"route\", \"67\"]", "command": ["git", "-c", "core.safecrlf=false", "diff", "--exit-code", "--stat", "HEAD", "--", "tests/contract/"]}
+]
