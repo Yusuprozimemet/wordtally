@@ -1,6 +1,7 @@
-"""python -m wordtally [--top N] [FILE...]: the lines, words and characters of each file.
+"""python -m wordtally [--top N] [--stopwords] [FILE...]: the lines, words and characters of each file.
 No file, or "-", reads standard input."""
 import argparse
+import os
 import sys
 from collections import Counter
 
@@ -26,14 +27,23 @@ def read(path):
         return f.read()
 
 
+def stopwords():
+    # split() drops the "\r" that a CRLF checkout leaves at the end of each word.
+    with open(os.path.join(os.path.dirname(__file__), "stopwords.txt"), encoding="utf-8") as f:
+        return set(f.read().split())
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="python -m wordtally")
     parser.add_argument("--top", metavar="N", type=whole_number,
                         help="also print the N most frequent words")
+    parser.add_argument("--stopwords", action="store_true",
+                        help="leave common English words out of the --top list")
     parser.add_argument("files", nargs="*", default=["-"])
     args = parser.parse_args(argv)
     rows = []
     tally = Counter()
+    common = stopwords() if args.stopwords and args.top else set()
     failed = False
     for path in args.files:
         try:
@@ -44,7 +54,7 @@ def main(argv=None):
         else:
             rows.append((counts(text), path))
             if args.top:
-                tally.update(word.lower() for word in words(text))
+                tally.update(w for w in map(str.lower, words(text)) if w not in common)
     # Files named, not files read: standard input counts as a file named -, as Day 3's stop decided.
     if len(args.files) > 1:
         total = tuple(sum(c[i] for c, _ in rows) for i in range(3))
