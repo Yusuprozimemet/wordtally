@@ -63,6 +63,9 @@ Each phase is a series of <400-line PRs, so CI stays green.
   against the code before anything goes on. It decides one thing Phase 1 needs: whether standard
   input counts as a file named `-` in the total, or stands alone. Decided: as a file named `-`
   (Course corrections).
+- **Day 5 (Phase 1, the last phase) is the final stopping point.** The plan-auditor reads the
+  phase and the whole plan; the security-ops, agentic-engineering and architecture auditors run
+  beside it. Done 2026-10-28 (Course corrections).
 
 ## Constraints
 
@@ -78,6 +81,12 @@ Each phase is a series of <400-line PRs, so CI stays green.
 
 <!-- Added by plan-change PRs, newest first: what a stopping point or audit found, and what the
 maintainer chose. Empty at the start. -->
+
+- **Day 5 stop: the plan is delivered, and the project is paused.** Both Done whens hold on
+  `main` (9a8e331). The five end-of-project audits found no code defect, but found gaps in the
+  controls around the agent. The maintainer chose to record them, not fix them now. They are
+  listed in [`docs/lab-notebook.md`](docs/lab-notebook.md#retrospective). Any further work
+  starts with a new plan, and with that list.
 
 - **Day 3 stop (H3.1): standard input is a file named `-`, as `wc` treats it.** With no file
   named, wordtally reads `["-"]`, and its line prints the name `-`. The total rule is unchanged:
