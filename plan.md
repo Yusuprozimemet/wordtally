@@ -50,16 +50,19 @@ Each phase is a series of <400-line PRs, so CI stays green.
 ### Phase 1 — Input and output
 **Goal:** wordtally reads what a pipe gives it and writes what a script can read.
 - Day 2: standard input when no file is named, or the name is `-`.
-- Day 4: `--stopwords`, with a built-in English list in `wordtally/stopwords.txt`.
+- Day 4: `--stopwords`, a flag that takes no value: it drops the words in a built-in English list,
+  `wordtally/stopwords.txt`, from the `--top` tally only. Lines, words and characters are
+  unchanged.
 - Day 5: `--json`, the same counts as one JSON object.
 - **Done when:** `cat a.txt | python -m wordtally --json --stopwords --top 3` prints one JSON
-  object whose counts match the plain output's.
+  object whose counts match the plain output's: the same command without `--json`.
 
 ## Stopping points
 
 - **Day 3 (Phase 0's counting) is a stopping point.** The plan-auditor reads the whole plan
   against the code before anything goes on. It decides one thing Phase 1 needs: whether standard
-  input counts as a file named `-` in the total, or stands alone.
+  input counts as a file named `-` in the total, or stands alone. Decided: as a file named `-`
+  (Course corrections).
 
 ## Constraints
 
@@ -75,6 +78,14 @@ Each phase is a series of <400-line PRs, so CI stays green.
 
 <!-- Added by plan-change PRs, newest first: what a stopping point or audit found, and what the
 maintainer chose. Empty at the start. -->
+
+- **Day 3 stop (H3.1): standard input is a file named `-`, as `wc` treats it.** With no file
+  named, wordtally reads `["-"]`, and its line prints the name `-`. The total rule is unchanged:
+  a total line when more than one name is given, `-` counting as one. The plan-auditor found
+  Phase 1 needed this settled before Day 2.
+- **Day 3 stop: `--stopwords` is a flag, and filters only the `--top` tally.** Day 4's line read
+  as if it might take a list or change every count; the maintainer chose the narrow reading.
+  "The plain output" in Phase 1's Done when is the same command without `--json`.
 
 ## Day-by-day specs
 
