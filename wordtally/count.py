@@ -13,3 +13,8 @@ def words(text):
 
 def count_words(text):
     return len(words(text))
+
+
+def counts(text):
+    """Lines, words and characters of text, as `wc` counts lines: newlines."""
+    return text.count("\n"), count_words(text), len(text)
