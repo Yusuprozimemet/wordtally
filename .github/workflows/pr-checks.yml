@@ -15,8 +15,9 @@ name: PR checks
 #
 # 3. The frozen files stay unedited: the project file's `frozen` patterns, such as
 #    migrations that have run and the tests that show the code still behaves after
-#    a change. Additions and pure renames pass, so a move stays
-#    possible; an edit or a delete fails and names the file (scripts/invariants.py).
+#    a change. Additions and pure renames within the frozen set pass, so a move stays
+#    possible; an edit, a delete or a move out of the set fails and names the file, and
+#    so does a drop in the project file's `test_count` (scripts/invariants.py).
 #
 # 4. Every service is wired: built in compose with a healthcheck that allows its start, and
 #    scraped by Prometheus on its management port (scripts/service-wiring.py). Each extraction
