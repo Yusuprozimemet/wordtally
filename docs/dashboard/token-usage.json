@@ -1,5 +1,7 @@
 [
-{"date":"2026-10-28","day":null,"model":"claude-opus-5-5","input":174,"cache_write":208645,"cache_read":6072759,"output":53725,"replies":80},
+{"date":"2026-10-28","day":null,"model":"claude-opus-5-5","input":332,"cache_write":428225,"cache_read":11591993,"output":110441,"replies":156},
 {"date":"2026-10-28","day":1,"model":"claude-haiku-5-5","input":14,"cache_write":26391,"cache_read":129874,"output":6467,"replies":7},
-{"date":"2026-10-28","day":1,"model":"claude-opus-5-5","input":156,"cache_write":111300,"cache_read":5276741,"output":52370,"replies":73}
+{"date":"2026-10-28","day":1,"model":"claude-opus-5-5","input":222,"cache_write":151770,"cache_read":8039071,"output":76608,"replies":104},
+{"date":"2026-10-28","day":3,"model":"claude-haiku-5-5","input":16,"cache_write":26574,"cache_read":154948,"output":6559,"replies":8},
+{"date":"2026-10-28","day":3,"model":"claude-opus-5-5","input":72,"cache_write":60285,"cache_read":1798199,"output":27160,"replies":32}
 ]
