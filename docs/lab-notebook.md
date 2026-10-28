@@ -45,14 +45,40 @@ as "COUNT WORD", count descending and then the word ascending. Without `--top` t
   and 8.2M. Day 1's rows grew at this recount (80 replies then): its close's own session is now
   counted.
 
+**Day 2 — standard input, a file named `-`.** `python -m wordtally` with no name, or with `-`
+among the names, counts standard input as a file named `-`: its own line, one name in the total,
+its words in the `--top` tally (H3.1, the Day 3 stop's decision). It is read as UTF-8 bytes, its
+carriage returns counted. C1.8's usage error for no name expired (H1.1). Run after Day 3, as the
+stop decided.
+
+- *Estimated 3 pull requests, took 3:* the spec change (#11), Track A (#12), and this close. #10,
+  before it, recorded the Day 3 stop's decisions in `plan.md`.
+- The spec-auditor found three faults in the draft: the tests had to feed bytes but `run()`
+  hard-codes `text=True`; C2.3 claimed a text-mode read drops the carriage return on Linux, where
+  it does not; C2.4 named `main` as its base, which ticks itself once Track A merges (Day 3's C3.4
+  had done the same). Before it ran, the session had found its own C2.4 failing today and a
+  CRLF-blind diff counting 109 removed lines. All before any code (#11).
+- Track A was written by the implementer on Haiku (37+/9- lines) and taken without a rewrite.
+  Its first draft of the stdin test helper left the child's `\r\n` endings; its own run caught
+  it. The three new tests were seen red on `main`'s code first, and each was broken once. One
+  break, the text-mode read, bites only on Windows: CI's Linux cannot see it.
+- Six defects, all found before their PR merged; none escaped from Days 1 or 3. The blind rater
+  read "found: self" as before any code for a defect caught in the spec-change PR, the third day
+  that tag was miswritten; it was changed, with the one beside it. The spec-auditor's three
+  findings had been written as one line and were split, as the rule asks.
+- Tokens, 2026-10-28, as `scripts/token-usage.py` counted them at this close: Day 2, 33 replies
+  on Opus, 31k output tokens and 1.7M cache reads. The implementer's 7 Haiku replies for #12
+  were counted under no day, beside 213 Opus replies off the days' branches. Day 3's Opus rows
+  grew from 32 replies to 53: #10 and its own close are now counted.
+
 ## What is being measured
 
 | Question | Evidence it will be judged on |
 | --- | --- |
-| Do day-sized estimates hold for agent-implemented work? | Estimated vs actual pull requests per spec (currently Day 1 3→3, Day 3 3→3) |
-| Does the word rule survive the days unedited? | Lines changed in `tests/contract/` (currently 0, Days 1 and 3) |
-| How much of the implementer's work is redone? | Tracks the main session rewrote beyond review fixes, of the tracks the implementer wrote (currently 0 of 2) |
-| Where are defects caught? | Defect lines by `found:` (currently Day 1: 3 auditor, 1 spec-change PR, 1 self, 1 close; Day 3: 1 auditor, 1 spec-change PR, 1 self; 0 escapes from an earlier day) |
-| Does a blind reader tag defects the same way? | `relabel.py compare` disagreements per day (Days 1 and 3: in their closing PRs) |
+| Do day-sized estimates hold for agent-implemented work? | Estimated vs actual pull requests per spec (currently Day 1 3→3, Day 3 3→3, Day 2 3→3) |
+| Does the word rule survive the days unedited? | Lines changed in `tests/contract/` (currently 0, Days 1, 3 and 2) |
+| How much of the implementer's work is redone? | Tracks the main session rewrote beyond review fixes, of the tracks the implementer wrote (currently 0 of 3) |
+| Where are defects caught? | Defect lines by `found:` (currently Day 1: 3 auditor, 1 spec-change PR, 1 self, 1 close; Day 3: 1 auditor, 1 spec-change PR, 1 self; Day 2: 3 auditor, 2 spec-change PR, 1 self; 0 escapes from an earlier day) |
+| Does a blind reader tag defects the same way? | `relabel.py compare` disagreements per day (Days 1, 3 and 2: in their closing PRs) |
 
 ## Retrospective

@@ -1,7 +1,9 @@
 [
-{"date":"2026-10-28","day":null,"model":"claude-opus-5-5","input":332,"cache_write":428225,"cache_read":11591993,"output":110441,"replies":156},
+{"date":"2026-10-28","day":null,"model":"claude-haiku-5-5","input":14,"cache_write":27639,"cache_read":135713,"output":8006,"replies":7},
+{"date":"2026-10-28","day":null,"model":"claude-opus-5-5","input":452,"cache_write":621182,"cache_read":14215509,"output":146001,"replies":213},
 {"date":"2026-10-28","day":1,"model":"claude-haiku-5-5","input":14,"cache_write":26391,"cache_read":129874,"output":6467,"replies":7},
 {"date":"2026-10-28","day":1,"model":"claude-opus-5-5","input":222,"cache_write":151770,"cache_read":8039071,"output":76608,"replies":104},
+{"date":"2026-10-28","day":2,"model":"claude-opus-5-5","input":72,"cache_write":59318,"cache_read":1747102,"output":31238,"replies":33},
 {"date":"2026-10-28","day":3,"model":"claude-haiku-5-5","input":16,"cache_write":26574,"cache_read":154948,"output":6559,"replies":8},
-{"date":"2026-10-28","day":3,"model":"claude-opus-5-5","input":72,"cache_write":60285,"cache_read":1798199,"output":27160,"replies":32}
+{"date":"2026-10-28","day":3,"model":"claude-opus-5-5","input":118,"cache_write":87587,"cache_read":3101035,"output":39797,"replies":53}
 ]
