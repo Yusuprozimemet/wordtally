@@ -7,7 +7,8 @@ name: Dashboard metric tests
 # scripts/test_invariants.py, which checks the rule that keeps the frozen
 # files unedited, and scripts/test_break.py, which checks that a break on purpose
 # puts the code back as it was, and scripts/test_relabel.py, which checks that the close's blind
-# relabel hides a defect's tags and finds where the rater disagrees.
+# relabel hides a defect's tags and finds where the rater disagrees, and scripts/test_evidence.py,
+# which checks that a ticked criterion's test, Verify line or break that does not hold up fails.
 
 on:
   # Every pull request, so the gate below always reports: a required check that never starts
@@ -33,7 +34,7 @@ jobs:
       - name: Compare with the base
         id: diff
         env:
-          PATHS: '^(scripts/(spec-drift|test_spec_drift|token-usage|test_token_usage|invariants|test_invariants|break|test_break|relabel|test_relabel)\.py$|spec-drift\.config\.json$|docs/dashboard/dashboard\.js$|kit/(compare-page\.py|page/.*)$|\.github/workflows/spec-drift-tests\.yml$)'
+          PATHS: '^(scripts/(spec-drift|test_spec_drift|token-usage|test_token_usage|invariants|test_invariants|break|test_break|relabel|test_relabel|evidence|test_evidence)\.py$|spec-drift\.config\.json$|docs/dashboard/dashboard\.js$|kit/(compare-page\.py|page/.*)$|\.github/workflows/spec-drift-tests\.yml$)'
         run: |
           files=$(git diff --name-only HEAD^1 HEAD)
           if grep -qE "$PATHS" <<< "$files"; then run=true; else run=false; fi
@@ -55,6 +56,7 @@ jobs:
       - run: python scripts/test_invariants.py
       - run: python scripts/test_break.py
       - run: python scripts/test_relabel.py
+      - run: python scripts/test_evidence.py
 
   # What a copy of the kit starts with: kit/starter-check.py builds the pull request without kit/
   # and checks it. On every pull request, since any file can name the source project. Not in the
