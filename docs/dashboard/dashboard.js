@@ -223,8 +223,12 @@ function lineChart(box, { H, yMin, yMax, ticks, unit, series, bands, label, stri
     el("text", { x: lx(i) + 3, y: H - LP.b + (strip ? 46 : 32), class: "date" }, svg).textContent = shortDate(s);
   });
   if (strip) {
-    const w = (LW - LP.l - LP.r) / (N - 1);
-    R.forEach((r, i) => el("rect", { x: lx(i) - w / 2 + 1, y: H - LP.b + 5, width: Math.max(2, w - 2), height: 8, rx: 2, fill: KVAR[r.kind] }, svg));
+    // A merge's cell runs halfway to each neighbour, clipped to the plot: with few merges a cell is wide, and the end ones ran off the card.
+    const edge = x => Math.min(LW - LP.r, Math.max(LP.l, x));
+    R.forEach((r, i) => {
+      const a = edge(lx(i - 0.5)), b = edge(lx(i + 0.5));
+      el("rect", { x: a + 1, y: H - LP.b + 5, width: Math.max(2, b - a - 2), height: 8, rx: 2, fill: KVAR[r.kind] }, svg);
+    });
   }
   el("line", { x1: lx(sel), x2: lx(sel), y1: LP.t, y2: H - LP.b, stroke: "var(--ink-2)", "stroke-width": 1 }, svg);
   const cross = el("line", { x1: 0, x2: 0, y1: LP.t, y2: H - LP.b, stroke: "var(--muted)", "stroke-dasharray": "3 3", visibility: "hidden" }, svg);
@@ -258,6 +262,9 @@ function lineChart(box, { H, yMin, yMax, ticks, unit, series, bands, label, stri
 const degMax = Math.ceil(Math.max(...R.map(r => Math.max(r.gap_full || 0, (r.gap_chance_band || [])[1] || 0))) / 15) * 15;
 const covMin = Math.min(92, Math.floor(Math.min(...R.filter(r => r.coverage != null).map(r => r.coverage * 100)) / 2) * 2);
 function drawLines() {
+  // The legend's sample is this repository's first out-of-order day, and there is no key when none ran out of order.
+  const key = document.getElementById("ooo-key"), first = [...OOO].sort((a, b) => rank(a) - rank(b))[0];
+  if (key) { if (first == null) key.style.display = "none"; else key.querySelector("b").textContent = "D" + dd(first) + "*"; }
   lineChart(document.getElementById("lines"), {
     H: 330, yMin: 0, yMax: degMax, ticks: steps(0, degMax, degMax / 15), unit: "°", strip: true,
     label: "Spec–code name gap in degrees across merges",
