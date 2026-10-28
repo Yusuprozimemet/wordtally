@@ -85,6 +85,29 @@ class CliTest(unittest.TestCase):
         self.assertEqual((r.returncode, r.stdout), (2, ""))
         self.assertIn("usage:", r.stderr)
 
+    def test_top_lists_the_most_frequent_words_after_the_total(self):
+        with tempfile.TemporaryDirectory() as d:
+            a = write(d, "a.txt", b"the cat The dog\n")
+            b = write(d, "b.txt", b"the cat\n")
+            r = run("--top", "3", a, b)
+        self.assertEqual((r.returncode, r.stdout),
+                         (0, f" 1  4 16 {a}\n 1  2  8 {b}\n 2  6 24 total\n"
+                             "3 the\n2 cat\n1 dog\n"))
+
+    def test_top_breaks_ties_alphabetically_and_stops_at_n(self):
+        with tempfile.TemporaryDirectory() as d:
+            c = write(d, "c.txt", b"b a b a c\n")
+            r = run("--top", "2", c)
+        self.assertEqual((r.returncode, r.stdout),
+                         (0, f" 1  5 10 {c}\n2 a\n2 b\n"))
+
+    def test_top_below_one_is_a_usage_error(self):
+        with tempfile.TemporaryDirectory() as d:
+            a = write(d, "a.txt", b"one\n")
+            r = run("--top", "0", a)
+        self.assertEqual((r.returncode, r.stdout), (2, ""))
+        self.assertIn("usage:", r.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()
