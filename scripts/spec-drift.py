@@ -68,8 +68,9 @@ BREAK_LINE = re.compile(r"^[ \t]*(?:[-*][ \t]+)?broken:[ \t]*(\S[^\n]*?)[ \t]*(?
 BREAK_LINE_FROM_PR = 0  # PROJECT: the first PR asked for the broken: line; 0 for all of them
 # A test CI can skip: switched off, or run only on a condition. A condition on a system property
 # is met when a workflow passes it as true (GatewayHarnessIT, -Dharness.gateway=true), so that
-# test runs. A bare @Disabled stays skippable.
-SKIPPABLE = re.compile(r"@Disabled\b|@(?:Enabled|Disabled)If")
+# test runs. A bare @Disabled stays skippable. In Python, unittest's skip decorators and skipTest.
+SKIPPABLE = re.compile(r"@Disabled\b|@(?:Enabled|Disabled)If|\bunittest\.skip|\bskipTest\(")
+PY_CLASS = re.compile(r"^class (\w+)", re.M)
 ON_PROPERTY = re.compile(r'@EnabledIfSystemProperty\(\s*named\s*=\s*"([^"]+)"\s*,\s*matches\s*=\s*"true"\s*\)')
 CI_PROPERTY = re.compile(r"-D([\w.-]+)=true\b")
 CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir, "spec-drift.config.json")
@@ -785,6 +786,9 @@ def test_state(tests, sha, blobs, moved=None):
     for path in (line.split("\t", 1)[1] for line in at_commits("ls-tree", "-r", sha).splitlines()):
         if path.endswith((".java", ".kt")):
             files[os.path.splitext(os.path.basename(path))[0]].append(path)
+        elif path.endswith(".py"):  # a Python file is not named after its class: index the classes it defines
+            for cls in PY_CLASS.findall(blobs.read(sha, path)):
+                files[cls].append(path)
         elif path.startswith(".github/workflows/"):
             ci.update(CI_PROPERTY.findall(blobs.read(sha, path)))
     met = lambda m: "" if m.group(1) in ci else m.group(0)
