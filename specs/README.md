@@ -25,6 +25,7 @@ Spec-driven development. **No code without a spec. No spec without checkable acc
   (Days 08 and 09).
   - `new` is behaviour that does not exist yet. The check must fail on today's code, and the
     spec says how ("the grep finds two"). A `new` check that passes before the work is wrong.
+    `scripts/seen-red.py` runs a track's tests on the code before it and prints the `seen red:` line.
   - `hold` must stay true through the change: contract tests passing unedited, a statement
     count. It passes before and after, so passing says nothing. Break the code on purpose once,
     watch the check fail, record what it reported, and revert. In jobmatch-microservices, Day
