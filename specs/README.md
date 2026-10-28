@@ -109,8 +109,8 @@ specs/
 
 | Days | Phase | Outcome | Status |
 |---|---|---|---|
-| 1, 3 | 0, Counting | lines, words and characters per file; the most frequent words | not started |
-| 2, 4-5 | 1, Input and output | standard input; stopwords; JSON output | not started |
+| 1, 3 | 0, Counting | lines, words and characters per file; the most frequent words | done (#9) |
+| 2, 4-5 | 1, Input and output | standard input; stopwords; JSON output | done (#19) |
 
 ## Provisional specs
 

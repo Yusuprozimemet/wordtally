@@ -122,3 +122,73 @@ prints. Without it the output is Day 4's. Phase 1's Done when holds, and Phase 1
 | Does a blind reader tag defects the same way? | `relabel.py compare` disagreements per day (Days 1, 3, 2, 4 and 5: in their closing PRs) |
 
 ## Retrospective
+
+Written 2026-10-28, after Day 5 closed (#19, `main` at 9a8e331). Five auditors ran in parallel,
+each from a fresh context, none reading the others: the plan-auditor on Phase 1 and on the whole
+plan, and the security-ops, agentic-engineering and architecture auditors. The maintainer chose to
+record their findings and pause, not fix them now.
+
+### Verdicts
+
+| Auditor | Verdict | In one line |
+| --- | --- | --- |
+| plan-auditor, Phase 1 | holds | Done when run for real: "Ran 23 tests", OK; JSON and plain counts match (1, 7, 27); 13 criteria hold |
+| plan-auditor, whole plan | delivered | No code finding; six notes on documents drifting |
+| security-ops | unsafe for more autonomy | The agent holds the owner's admin token; protection has `enforce_admins:false` and no required review |
+| agentic-engineering | weak evidence | Good process around agents; the task was too small and fixed to test long-horizon capability |
+| architecture | promising | Clear rules, but the main gates can be stepped round by accident or on purpose |
+
+They disagreed on whether the frozen word rule is safe. The plan-auditors ran the diff on
+`tests/contract/` and found it unedited. The architecture auditor showed two ways that check
+misses (open items 4 and 5). They also disagreed on whether the measurements say anything: the
+counts check out, but the gap metric is null on every row, and every estimate was 3→3.
+
+### Lessons
+
+- A lesson written only in a day's Notes did not carry: tests were not seen red on the pre-day
+  code in #15, and again in #18. Behaviour changed only where a lesson became a rule or a script.
+- "Nothing merges without the maintainer" and "wait for merged" are kept by the agent's behaviour,
+  not by access control. They held for 20 PRs; nothing would have stopped a break.
+- The plan, the contract and the workflow came from the kit's seed commit and the maintainer's
+  decisions. The agents settled spec detail and wrote 106 lines of product code. Judge the
+  agent evidence at that size.
+
+### Open items, for whoever resumes
+
+None is owned by a day. Before more agent autonomy, 1 to 3 come first.
+
+1. **Agent credentials.** Give agents a non-admin identity (a fine-grained token or GitHub App,
+   no `workflow` scope), set `enforce_admins:true`, and require one review from someone who is not
+   the author. Today all 20 PRs were authored and merged by the same account, with 0 reviews.
+2. **Required checks accept any source.** Five of the six required checks have `app_id:null`:
+   any `repo` token can post a passing status by name. Pin each to GitHub Actions.
+3. **The control plane is not frozen.** A PR can edit `.github/workflows/` and `scripts/`, and
+   `pull_request` runs the PR's own copies. Freeze them or add CODEOWNERS with required review.
+4. **A rename empties the frozen set.** Moving `tests/contract/test_word_rule.py` out of
+   `tests/contract/` unchanged passes `scripts/invariants.py` (an `R100` rename is allowed); the
+   suite drops from 23 tests to 18. Fail renames out of a frozen pattern; fail a drop in test count.
+5. **The contract tests do not pin the plan's rule.** Changing the word pattern to `[\w']+` passes
+   all five contract cases, which are ASCII only. Add non-ASCII and underscore cases.
+6. **Nothing checks the evidence.** No CI step runs a spec's Verify block, re-runs a `broken:`
+   line, or checks a ticked criterion's test exists. "Criteria first broken at the close" returns
+   nothing even for Day 5, which had such a case.
+7. **The local guard has holes.** It sees only shell commands: Edit and Write on
+   `~/.claude/settings.json` and the guard itself are not denied, `-XDELETE` and
+   `--method=DELETE` pass its DELETE rule, and `gh pr merge` and `git push origin main` are not
+   blocked.
+8. **Supply chain.** Actions are pinned by tag, not commit SHA, and the Pages job installs
+   `numpy` unpinned, with `id-token: write`.
+9. **Untrusted text.** The repository is public, so issues and PR text reach the agent, which
+   also writes the memory loaded into later sessions. No rule treats that text as data.
+10. **Carry the "seen red first" step** into the implementer brief or `scripts/break.py`, not a Note.
+11. **Kit leftovers in CLAUDE.md:** "start Day 12", jobmatch's token figures, Maven. They are the
+    kit's lessons, not this repository's.
+12. **The Done when is shell-dependent.** PowerShell's `cat` adds a CRLF (28 characters, not 27).
+    Read it in a POSIX shell.
+
+### Next experiments the audits proposed
+
+- An agent writes the plan and specs for an unseen feature set of about 2k lines. Count the
+  maintainer's corrections and the defects that escape.
+- Give the implementer the spec alone, not a dictated brief. Count rewrites and escapes.
+- Run the spec-auditor from a different model family against specs with planted faults.
