@@ -13,11 +13,13 @@ For each spec, at the merge commit of its day's close (`day-NN/close-the-day`) o
   close's first parent, so a line written as `git diff main` reads the day's base, not today's;
 - every `broken:` line under a ticked criterion re-runs through scripts/break.py, from the
   arguments recorded for it in specs/breaks/day-NN.json, and reports what the line says, temporary
-  directory names aside. A `broken:` line with no recorded arguments fails: prose cannot be re-run.
+  directory names aside, and a report pasted across lines or with its backslashes undoubled read
+  as the escapes break.py printed. A `broken:` line with no recorded arguments fails: prose cannot
+  be re-run.
 
 The breaks file is a list of {"what", "file", "find", "replace", "command"}, "what" being the text
-of the `broken:` line before the arrow, "file" a path from the repository root, and "command" an
-argument list run from that root.
+of the `broken:` line before its last arrow, "file" a path from the repository root, and "command"
+an argument list run from that root, `bash` meaning Git's bash on Windows.
 
 Item 6 of the lab notebook's open items: no step checked the evidence a close ticks a box on. It
 prints one line per check and exits 1 if any failed. It changes no file outside the worktree.
@@ -36,7 +38,8 @@ BREAK = os.path.join(HERE, "break.py")
 
 CRITERION = re.compile(r"^- \[([ x])\] (C\d+\.\d+)\b")
 TEST = re.compile(r"`(\w+)\.(test_\w+)`")
-BROKEN = re.compile(r"^\s*broken: (.+?) → (.*)$")
+# At the last arrow: Day 1 recorded two breaks with an arrow inside what was broken.
+BROKEN = re.compile(r"^\s*broken: (.+) → (.*)$", re.S)
 PR_SUFFIX = re.compile(r"\s+\(#\d+\)$")
 TEMP_NAME = re.compile(r"tmp[0-9a-z_]{8}")
 COMMENT = re.compile(r"^(.*?)\s{2,}#\s*(.*)$")
@@ -130,20 +133,39 @@ def run_verify(line, worktree, base, env):
     return expected(comment, run.returncode, run.stdout + run.stderr)
 
 
+def joined(lines):
+    """The lines, a line indented less than a `broken:` line before it joined to it: a report
+    recorded across lines."""
+    indent = lambda line: len(line) - len(line.lstrip())
+    out = []
+    for line in lines:
+        if out and BROKEN.match(out[-1]) and line.strip() and indent(line) < indent(out[-1]):
+            out[-1] += "\n" + line
+        else:
+            out.append(line)
+    return out
+
+
 def normal(report):
-    return TEMP_NAME.sub("tmp*", PR_SUFFIX.sub("", report.strip()))
+    """A report as compared: temporary names aside, and a newline and a run of backslashes read as
+    the escapes they were pasted from."""
+    report = TEMP_NAME.sub("tmp*", PR_SUFFIX.sub("", report.strip()))
+    return re.sub(r"\\+", r"\\", report.replace("\n", "\\n"))
 
 
 def run_break(entry, worktree, env):
     """What break.py reported for the recorded break, or why it did not."""
+    command = entry["command"]
+    if command[0] == "bash":
+        command = [bash(), *command[1:]]
     run = subprocess.run([sys.executable, BREAK, "--file", os.path.join(worktree, entry["file"]),
                           "--find", entry["find"], "--replace", entry["replace"], "--what", entry["what"],
-                          "--cwd", worktree, "--", *entry["command"]],
+                          "--cwd", worktree, "--", *command],
                          capture_output=True, text=True, encoding="utf-8", errors="replace", env=env)
     lines = (run.stdout + run.stderr).strip().splitlines()
     if run.returncode != 0:
         return None, lines[0] if lines else f"break.py exited {run.returncode}"
-    return lines[-1].split(" → ", 1)[1], None
+    return lines[-1][len(f"broken: {entry['what']} → "):], None
 
 
 def check_spec(path, ref):
@@ -180,7 +202,7 @@ def check_spec(path, ref):
             why = run_verify(line, worktree, base, env)
             results.append((why is None, f"Verify: {line.strip()}" + (f" → {why}" if why else "")))
         for cid, lines in ticked.items():
-            for what, report in (m.groups() for l in lines if (m := BROKEN.match(l))):
+            for what, report in (m.groups() for l in joined(lines) if (m := BROKEN.match(l))):
                 if what == "none":
                     continue
                 if what not in recorded:

@@ -1,0 +1,7 @@
+[
+  {"what": "the default of no name emptied in wordtally/__main__.py", "file": "wordtally/__main__.py", "find": "default=[\"-\"]", "replace": "default=[]", "command": ["python", "-m", "unittest", "tests.test_cli.CliTest.test_no_file_reads_standard_input"]},
+  {"what": "the name - not recognised in read()", "file": "wordtally/__main__.py", "find": "if path == \"-\":", "replace": "if path == \"--\":", "command": ["python", "-m", "unittest", "tests.test_cli.CliTest.test_a_dash_reads_standard_input_and_counts_in_the_total"]},
+  {"what": "standard input read in text mode", "file": "wordtally/__main__.py", "find": "sys.stdin.buffer.read().decode(\"utf-8\")", "replace": "sys.stdin.read()", "command": ["python", "-m", "unittest", "tests.test_cli.CliTest.test_standard_input_is_utf8_with_its_carriage_returns"]},
+  {"what": "a line of test_top_below_one_is_a_usage_error edited in tests/test_cli.py", "file": "tests/test_cli.py", "find": "r = run(\"--top\", \"0\", a)", "replace": "r = run(\"--top\", \"-1\", a)", "command": ["bash", "-c", "n=$(diff --strip-trailing-cr <(git show 46b9423:tests/test_cli.py | sed 83,86d) tests/test_cli.py | grep -c '^<'); echo removed=$n; [ $n -eq 0 ]"]},
+  {"what": "the total line's name in wordtally/__main__.py", "file": "wordtally/__main__.py", "find": "rows.append((total, \"total\"))", "replace": "rows.append((total, \"Total\"))", "command": ["python", "-m", "unittest", "tests.test_cli.CliTest.test_two_files_print_a_total_line"]}
+]
