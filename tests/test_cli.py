@@ -13,6 +13,15 @@ def run(*args):
                           capture_output=True, text=True)
 
 
+def run_with_input(data, *args):
+    # Bytes in and out, decoded here: a text-mode pipe on Windows adds a carriage return.
+    r = subprocess.run([sys.executable, "-m", "wordtally", *args], cwd=ROOT,
+                       capture_output=True, input=data)
+    return subprocess.CompletedProcess(r.args, r.returncode,
+                                       r.stdout.decode("utf-8").replace("\r\n", "\n"),
+                                       r.stderr.decode("utf-8").replace("\r\n", "\n"))
+
+
 def write(d, name, data):
     # Bytes, so that Windows writes no carriage return the test did not ask for.
     path = os.path.join(d, name)
@@ -80,10 +89,6 @@ class CliTest(unittest.TestCase):
                               if line.startswith("wordtally:")]), 2)
         self.assertNotIn("Traceback", r.stderr)
 
-    def test_no_file_is_a_usage_error(self):
-        r = run()
-        self.assertEqual((r.returncode, r.stdout), (2, ""))
-        self.assertIn("usage:", r.stderr)
 
     def test_top_lists_the_most_frequent_words_after_the_total(self):
         with tempfile.TemporaryDirectory() as d:
@@ -107,6 +112,21 @@ class CliTest(unittest.TestCase):
             r = run("--top", "0", a)
         self.assertEqual((r.returncode, r.stdout), (2, ""))
         self.assertIn("usage:", r.stderr)
+
+    def test_no_file_reads_standard_input(self):
+        r = run_with_input(b"the cat\nsat\n")
+        self.assertEqual((r.returncode, r.stdout), (0, " 2  3 12 -\n"))
+
+    def test_a_dash_reads_standard_input_and_counts_in_the_total(self):
+        with tempfile.TemporaryDirectory() as d:
+            a = write(d, "a.txt", b"the cat\n")
+            r = run_with_input(b"sat\n", a, "-")
+        self.assertEqual((r.returncode, r.stdout),
+                         (0, f" 1  2  8 {a}\n 1  1  4 -\n 2  3 12 total\n"))
+
+    def test_standard_input_is_utf8_with_its_carriage_returns(self):
+        r = run_with_input(b"a\r\n" + "éé\n".encode("utf-8"), "-")
+        self.assertEqual((r.returncode, r.stdout), (0, "2 1 6 -\n"))
 
 
 if __name__ == "__main__":
