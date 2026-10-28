@@ -176,3 +176,7 @@ tr.sel td { background: var(--surface-2); }
 .hand-offs .none { color: var(--code); font-weight: 600; }
 .hand-offs ul { margin: 6px 0 10px; padding-left: 18px; font-size: 13.5px; color: var(--ink-2); display: grid; gap: 4px; }
 .hand-offs li.picked { color: var(--muted); }
+
+/* A count out of a total, as a short bar before the figure. */
+.meter { display: inline-block; width: 48px; height: 6px; margin-right: 8px; border-radius: 3px; background: var(--grid); overflow: hidden; vertical-align: middle; }
+.meter i { display: block; height: 100%; background: var(--close); }
