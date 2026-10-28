@@ -71,14 +71,35 @@ stop decided.
   were counted under no day, beside 213 Opus replies off the days' branches. Day 3's Opus rows
   grew from 32 replies to 53: #10 and its own close are now counted.
 
+**Day 4 — `--stopwords`, common words out of the top list.** `--stopwords`, a flag, leaves the
+words of `wordtally/stopwords.txt` (45 lowercase English words) out of the `--top` tally and
+nothing else: lines, words and characters count them as before, and without `--top` it changes
+nothing, as the Day 3 stop decided.
+
+- *Estimated 3 pull requests, took 3:* the spec change (#14), Track A (#15), and this close.
+- The spec-auditor found nothing blocking; one of its three notes, that a CRLF checkout's
+  "the\r" bites only on Windows, went into the spec. The one defect before code was the
+  session's own: a hold break's first run reported git's CRLF warning as its line (#14).
+- Track A was written by the implementer on Haiku and taken without a rewrite. Its report said
+  the list held 40 words, not 45; review caught it. #15 recorded three breaks but not that the
+  new tests were red on the pre-day code; this close ran that, and both failed as the spec said.
+- Three defects, one each found in the spec-change PR, review, and the close. The close's is a
+  record gap in #15, made and found on Day 4; no code escaped. The blind rater read the CRLF
+  break defect as process, not environment, and it was changed: the pitfall was already in
+  CLAUDE.md.
+- Tokens, 2026-10-28, as `scripts/token-usage.py` counted them at this close: Day 4, 40 replies
+  on Opus, 26k output tokens and 2.4M cache reads, and the implementer's 6 Haiku replies, this
+  time counted under the day. Day 2's Opus rows grew from 33 replies to 65: its close's own
+  session is now counted.
+
 ## What is being measured
 
 | Question | Evidence it will be judged on |
 | --- | --- |
-| Do day-sized estimates hold for agent-implemented work? | Estimated vs actual pull requests per spec (currently Day 1 3→3, Day 3 3→3, Day 2 3→3) |
-| Does the word rule survive the days unedited? | Lines changed in `tests/contract/` (currently 0, Days 1, 3 and 2) |
-| How much of the implementer's work is redone? | Tracks the main session rewrote beyond review fixes, of the tracks the implementer wrote (currently 0 of 3) |
-| Where are defects caught? | Defect lines by `found:` (currently Day 1: 3 auditor, 1 spec-change PR, 1 self, 1 close; Day 3: 1 auditor, 1 spec-change PR, 1 self; Day 2: 3 auditor, 2 spec-change PR, 1 self; 0 escapes from an earlier day) |
-| Does a blind reader tag defects the same way? | `relabel.py compare` disagreements per day (Days 1, 3 and 2: in their closing PRs) |
+| Do day-sized estimates hold for agent-implemented work? | Estimated vs actual pull requests per spec (currently Day 1 3→3, Day 3 3→3, Day 2 3→3, Day 4 3→3) |
+| Does the word rule survive the days unedited? | Lines changed in `tests/contract/` (currently 0, Days 1, 3, 2 and 4) |
+| How much of the implementer's work is redone? | Tracks the main session rewrote beyond review fixes, of the tracks the implementer wrote (currently 0 of 4) |
+| Where are defects caught? | Defect lines by `found:` (currently Day 1: 3 auditor, 1 spec-change PR, 1 self, 1 close; Day 3: 1 auditor, 1 spec-change PR, 1 self; Day 2: 3 auditor, 2 spec-change PR, 1 self; Day 4: 1 spec-change PR, 1 review, 1 close; 0 escapes from an earlier day) |
+| Does a blind reader tag defects the same way? | `relabel.py compare` disagreements per day (Days 1, 3, 2 and 4: in their closing PRs) |
 
 ## Retrospective
