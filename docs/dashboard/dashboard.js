@@ -889,9 +889,9 @@ function drawRelabel() {
   const cell = p => !p ? `<td class="r pre">–</td>`
     : `<td class="r"><span class="meter"><i style="width:${p[0] / p[1] * 100}%"></i></span>${p[0]} of ${p[1]}</td>`;
   const tot = F.map(f => days.reduce((a, d) => d.relabel && d.relabel[f] ? [a[0] + d.relabel[f][0], a[1] + d.relabel[f][1]] : a, [0, 0]));
-  document.getElementById("relabel").innerHTML = `<thead><tr><th>Day</th>${F.map(f => `<th class="r">${f}</th>`).join("")}<th>Title</th></tr></thead><tbody>` +
+  document.getElementById("relabel").innerHTML = `<thead><tr><th>Day</th>${F.map(f => `<th class="r">${f[0].toUpperCase() + f.slice(1)}</th>`).join("")}<th>Title</th></tr></thead><tbody>` +
     days.map(d => `<tr><td class="num">${dd(d.day)}</td>${d.relabel ? F.map(f => cell(d.relabel[f])).join("")
-      : `<td class="r pre" colspan="3">not counted: the Notes tell it in prose</td>`}<td class="t">${md(d.title)}</td></tr>`).join("") +
+      : `<td class="r pre" colspan="3">not counted: the Notes give no counts</td>`}<td class="t">${md(d.title)}</td></tr>`).join("") +
     `<tr><td><b>All counted</b></td>${tot.map(p => cell(p[1] ? p : null)).join("")}<td></td></tr></tbody>`;
 }
 
