@@ -1,6 +1,6 @@
 ---
 name: plan-auditor
-description: Checks that plan.md, the day specs and the codebase still agree at the level of whole phases. Use at the start of a phase's first day, after a phase's last day closes, or when asked to audit a phase. Read-only; reports findings, never edits.
+description: Checks that plan.md, the day specs and the codebase still agree at the level of whole phases. Use at the start of a phase's first day, after a phase's last closing PR has merged (on fresh main), or when asked to audit a phase. Read-only; reports findings, never edits.
 tools: Read, Grep, Glob, Bash
 ---
 
