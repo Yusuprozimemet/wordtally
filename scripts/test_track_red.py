@@ -50,6 +50,7 @@ def spec(rows="| A | implementer | `app.py`; the test C1.1 names |", test="`T.te
 
 
 NO_FIELD = spec().replace("Test: `T.test_double_a", "`T.test_double_a")
+CAPITALISED = spec().replace("**new**", "**New**")
 
 
 class ParseTest(unittest.TestCase):
@@ -72,6 +73,20 @@ class ParseTest(unittest.TestCase):
     def test_a_new_criterion_no_row_names_is_a_problem_on_a_day_with_several_tracks(self):
         rows = "| A | implementer | C1.2 |\n| B | implementer | docs |"
         self.assertEqual(track_red.owned(spec(rows), "b")[1], ["C1.1 is new and no row of the Tracks table names it"])
+
+    def test_a_criterion_line_the_pattern_misses_is_a_problem_and_a_wrapped_line_is_not(self):
+        self.assertEqual(track_red.unread(spec(test="`T.a`, `T.b` and\n      `T.c`")), [])
+        for text in (CAPITALISED, spec().replace("C1.1 **new**", "C1.1 new"), spec().replace("- [ ] C1.1", "* [ ] C1.1")):
+            problems = track_red.unread(text)
+            self.assertEqual(len(problems), 1, text)
+            self.assertRegex(problems[0], r'^cannot read "[-*] \[ \] C1\.1 ')
+
+    def test_no_criteria_section_an_empty_one_and_a_repeated_id_are_problems(self):
+        self.assertEqual(track_red.unread(spec().replace("## Acceptance criteria", "## Acceptance Criteria")),
+                         ["the spec has no `## Acceptance criteria` section"])
+        empty = spec().split("## Acceptance criteria")[0] + "## Acceptance criteria\n\n## Notes\n"
+        self.assertEqual(track_red.unread(empty), ["the Acceptance criteria section lists no criterion"])
+        self.assertEqual(track_red.unread(spec().replace("C1.2 **hold**", "C1.1 **hold**")), ["C1.1 is listed 2 times"])
 
 
 class TrackRedTest(unittest.TestCase):
@@ -126,6 +141,12 @@ class TrackRedTest(unittest.TestCase):
         code, out = self.track_red(NO_FIELD)
         self.assertEqual(code, 1)
         self.assertIn("FAIL: C1.1 is new and has no Test: field", out)
+
+    def test_a_new_criterion_the_check_cannot_read_fails_not_as_not_applicable(self):
+        code, out = self.track_red(CAPITALISED)
+        self.assertEqual(code, 1, out)
+        self.assertIn('FAIL: cannot read "- [ ] C1.1 **New**', out)
+        self.assertNotIn("not applicable", out)
 
     def test_a_name_that_matches_no_test_on_the_head_fails(self):
         code, out = self.track_red(spec(test="`T.test_gone`"))
