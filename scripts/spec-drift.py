@@ -481,13 +481,15 @@ def trajectory(snaps, blobs, order=()):
     def code_counts(sha):
         """A merge's counts need only the names the specs had used by then (later ones are masked
         by born), and a SHA fixes its history, so counts cached under it stay right. kit/ is the
-        starter cleanup's tooling and the source project's data, which a copy deletes: not this project's code."""
+        starter cleanup's tooling and the source project's data, which a copy deletes: not this project's code.
+        specs/ is the spec side, every file in it: its break manifests copy the spec's names, and
+        counted as code they narrowed the gap at #25 with no code changed."""
         cached = CACHE.setdefault("code", {}).get(sha)
         if cached is not None:
             return np.array([cached.get(v, 0) for v in vocab], dtype=float)
         out = subprocess.run(["git", "grep", "-h", "-I", "-w", "-F", "-f", "-", sha, "--", ".",
                               ":(exclude)*.md", ":(exclude)data", ":(exclude)screenshots", ":(exclude)docs/dashboard",
-                              ":(exclude)**/package-lock.json", ":(exclude)kit"], input=patterns,
+                              ":(exclude)**/package-lock.json", ":(exclude)kit", ":(exclude)specs"], input=patterns,
                              capture_output=True, text=True, encoding="utf-8", errors="replace").stdout
         c = np.zeros(len(vocab))
         for line in out.splitlines():
