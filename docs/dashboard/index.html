@@ -186,6 +186,12 @@
     <div class="scroll-x"><table id="evidence"></table></div>
     <div class="finding" id="evidence-gaps" style="margin-top:14px"></div>
     <div class="panel-head" style="margin-top:14px">
+      <h2 style="font-size:17px">Evidence replayed</h2>
+      <p>What the last run of <code>scripts/evidence.py --json</code>, committed as <code>docs/dashboard/evidence-checks.json</code>, found when it replayed each finished day's evidence at its closing merge: the named tests looked up, the Verify commands run, the recorded breaks applied. The page build reads that report and runs nothing. “Seen red” above counts the <code>broken:</code> lines a day recorded; here a break counts as passed only if it reported what its line says. A share is passed over passed, failed and errored, with the not-applicable beside it; a day checked at another close, or on a spec or breaks file <code>main</code> has since changed, is stale, not a pass.</p>
+      <p class="limit">Evidence: checks the recorded evidence against the revisions shown; does not establish complete behavioral coverage or current correctness.</p>
+    </div>
+    <div id="evidence-checks"></div>
+    <div class="panel-head" style="margin-top:14px">
       <h2 style="font-size:17px">Merge by merge</h2>
       <p>The distinct tests the finished days name, looked up at every merge from the day each was ticked. Green is there and run by CI; orange can be skipped or has left the tree with no spec saying so; grey is retired. A green step is a day closing; a dip, or orange rising, is a check that has gone quiet.</p>
     </div>
