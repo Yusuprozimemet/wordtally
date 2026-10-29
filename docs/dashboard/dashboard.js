@@ -53,6 +53,7 @@ function rowTip(r) {
   <div class="row"><span>date</span><span>${r.date}</span></div>
   <div class="row"><span>day reached</span><span>${r.day || "–"}</span></div>
   <div class="row"><span>spec names in code</span><span>${r.name_coverage == null ? "–" : fmt(r.name_coverage * 100, 1) + "%"}</span></div>
+  <div class="row"><span>spec names in production</span><span>${r.prod_name_coverage == null ? "–" : fmt(r.prod_name_coverage * 100, 1) + "%"}</span></div>
   <div class="row"><span>Jaccard, spec ∩ code</span><span>${r.jaccard == null ? "–" : fmt(r.jaccard, 2)}</span></div>
   <div class="row"><span>names kept, dropped by specs</span><span>${r.names_kept ?? "–"}</span></div>
   <div class="row"><span>Spec names retired from the code</span><span>${r.names_retired ?? "–"}</span></div>
@@ -89,7 +90,7 @@ R.forEach(r => {
 document.getElementById("stats").innerHTML = `
   <div class="stat"><span class="k">Spec names in the code · Jaccard</span>
     <span class="v num">${last.name_coverage == null ? "–" : fmt(last.name_coverage * 100, 1) + "%"} <small>· ${last.jaccard == null ? "–" : fmt(last.jaccard, 2)}</small></span>
-    <span class="n">Of the backticked names the specs use today, the share the code has; Jaccard is the names in both over the names in either.</span>
+    <span class="n">Of the backticked names the specs use today, the share the code has${last.spec_names == null ? "" : ` (${last.names_in_code} of ${last.spec_names}; in production, ${last.names_in_prod})`}; Jaccard is the names in both over the names in either.</span>
     <span class="n" style="color:var(--muted)">Name-gap angle (secondary): ${fmt(firstGap.gap_full)}° → ${fmt(last.gap_full)}°, ${fmt(gapClosed)}° closed across ${N - 1} merges; ${fmt(last.gap_chance)}° by chance (95%: ${band(last.gap_chance_band)}). ${last.names_kept == null ? "" : `${last.names_kept} names the specs dropped are still in the code. `}${last.names_retired == null ? "" : `${last.names_retired} of the names not in the code were there at an earlier merge: retired, still counted as missing. `}${last.coverage == null ? "" : `${fmt(last.coverage * 100, 1)}% of the names the reached days use are in the code.`}</span></div>
   <div class="stat"><span class="k">Share of the gap closed by the spec</span>
     <span class="v num">${ofGap(byKind.spec)}</span>
@@ -134,6 +135,7 @@ const barPath = (get, hi) => R.map((r, i) => get(r) ? `M${spX(i)},${SPARK_H - 1}
 const specTotal = r => Object.values(r.spec_files || {}).reduce((a, b) => a + b, 0);
 const SPARK_SERIES = {
   names: [{ get: r => r.name_coverage, hi: 1, color: "var(--code)" }, { get: r => r.jaccard, hi: 1, color: "var(--muted)", dash: true }],
+  prod: [{ get: r => r.prod_name_coverage, hi: 1, color: "var(--code)" }],
   kept: [{ get: r => r.names_kept, hi: scaleTop(r => r.names_kept), color: "var(--code)" }],
   retired: [{ get: r => r.names_retired, hi: scaleTop(r => r.names_retired), color: "var(--code)" }],
   gap: [{ get: r => r.gap_full, hi: scaleTop(r => r.gap_full), color: "var(--gap)" }],
@@ -152,6 +154,23 @@ const sparkHtml = k => `<svg viewBox="0 0 ${SPARK_W} ${SPARK_H}" preserveAspectR
       + (v == null ? "" : `<path d="M${spX(sel)},${spY(v, s.hi)}h0" stroke="var(--ink)" stroke-width="5" stroke-linecap="round" vector-effect="non-scaling-stroke"/>`);
   }).join("") + "</svg>";
 
+// A name share with its counts; with no spec name there is nothing to divide, which is not 0% or 100%.
+// Data from before the counts were kept has no spec_names: the share alone, or – without one.
+const nameShare = (x, n, d) => x == null ? (d === 0 ? "not measured: no extracted spec names" : "–")
+  : `${fmt(x * 100, 1)}%` + (d == null ? "" : ` <small>${n}/${d}</small>`);
+// The names behind the two shares: each found only outside production with its places and paths, then the missing.
+function nameLists(s) {
+  if (s.names_outside_prod == null) return "";  // data from before the lists were kept
+  const out = Object.entries(s.names_outside_prod), absent = s.names_absent || [];
+  return `<details class="names"><summary>Present only outside production <span class="num">(${out.length})</span></summary>
+      ${out.length ? `<ul>${out.map(([n, at]) => `<li><code>${esc(n)}</code> ${Object.entries(at).map(([p, fs]) =>
+        `<span class="chip">${esc(p)}</span> ${fs.map(f => `<code class="path">${esc(f)}</code>`).join(" ")}`).join(" ")}</li>`).join("")}</ul>` : "<p>None.</p>"}
+    </details>
+    <details class="names"><summary>Absent from all scanned code <span class="num">(${absent.length})</span></summary>
+      ${absent.length ? `<ul>${absent.map(n => `<li><code>${esc(n)}</code></li>`).join("")}</ul>` : "<p>None.</p>"}
+    </details>`;
+}
+
 function drawReadout() {
   const s = R[sel], prev = R[Math.max(0, sel - 1)];
   const dGap = s.gap_full - prev.gap_full, specLines = Object.values(s.spec_files || {}).reduce((a, b) => a + b, 0);
@@ -168,7 +187,8 @@ function drawReadout() {
     <p style="font-size:14px;color:var(--ink-2)">${moved}</p>
     <div class="hr"></div>
     <dl>
-      <dt>Spec names in code</dt><dd>${s.name_coverage == null ? "–" : fmt(s.name_coverage * 100, 1) + "%"}</dd><dd class="spark">${sparkHtml("names")}</dd>
+      <dt>Spec names in code, all places</dt><dd>${nameShare(s.name_coverage, s.names_in_code, s.spec_names)}</dd><dd class="spark">${sparkHtml("names")}</dd>
+      <dt>Spec names in production</dt><dd>${nameShare(s.prod_name_coverage, s.names_in_prod, s.spec_names)}</dd><dd class="spark">${sparkHtml("prod")}</dd>
       <dt>Jaccard, spec ∩ code</dt><dd>${s.jaccard == null ? "–" : fmt(s.jaccard, 2)}</dd><dd></dd>
       <dt>Names the specs dropped, still in code</dt><dd>${s.names_kept ?? "–"}</dd><dd class="spark">${sparkHtml("kept")}</dd>
       <dt>Spec names retired from the code</dt><dd>${s.names_retired ?? "–"}</dd><dd class="spark">${sparkHtml("retired")}</dd>
@@ -178,6 +198,9 @@ function drawReadout() {
       <dt>Code lines changed</dt><dd>${s.code_churn.toLocaleString()}</dd><dd class="spark">${sparkHtml("code")}</dd>
       <dt>Spec lines changed</dt><dd>${edits.reduce((a, b) => a + b[1], 0)}</dd><dd class="spark">${sparkHtml("spec")}</dd>
     </dl>
+    <p class="limit">Vocabulary: matches extracted names, not behavior. Test and tool names may legitimately be absent from production.
+      Gap: compared with seeded shuffles of name counts; this is not a correctness test.</p>
+    ${nameLists(s)}
     ${edits.length ? `<div style="font-size:12.5px;color:var(--ink-2)">${edits.slice(0, 5).map(([f, n]) => `<div style="display:flex;justify-content:space-between;gap:10px"><code>${esc(f.replace("specs/", ""))}</code><span class="num">${n}</span></div>`).join("")}${edits.length > 5 ? `<div style="color:var(--muted)">+${edits.length - 5} more files</div>` : ""}</div>` : ""}`;
 }
 

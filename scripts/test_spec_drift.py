@@ -142,7 +142,21 @@ class SpecDriftTest(unittest.TestCase):
         self.assertEqual((rows[1]["name_coverage"], rows[1]["prod_name_coverage"]), (1.0, 0.0))
         self.assertEqual((rows[1]["spec_names"], rows[1]["names_in_code"], rows[1]["names_in_prod"]), (2, 2, 0))
         self.assertEqual(sd.CACHE["code"][self.repo.snaps[1]["sha"]],
-                         {"FooService": {"test": 1, "tooling": 1}, "bar_table": {"tooling": 2}})
+                         {"FooService": {"tests/test_foo.py": 1, "experiments/e1/cases.json": 1},
+                          "bar_table": {"scripts/bar.py": 1, "experiments/e1/cases.json": 1}})
+
+    def test_a_name_outside_production_is_listed_once_with_each_place_and_path(self):
+        rows = self.repo.merge({"tests/test_foo.py": "FooService = None\n", "scripts/foo.py": "FooService = 1\n",
+                                "scripts/foo2.py": "FooService = 2\n"}).rows()
+        self.assertEqual(rows[1]["names_outside_prod"],
+                         {"FooService": {"test": ["tests/test_foo.py"], "tooling": ["scripts/foo.py", "scripts/foo2.py"]}})
+        self.assertEqual(rows[1]["names_absent"], ["bar_table"])
+        rows = self.repo.merge({"src/Foo.java": "class FooService {}\n"}).rows()
+        self.assertEqual((rows[2]["names_outside_prod"], rows[2]["names_absent"]), ({}, ["bar_table"]))
+        rows = self.repo.merge({"src/Foo.java": None}).rows()
+        self.assertEqual(list(rows[3]["names_outside_prod"]), ["FooService"])
+        rows = self.repo.merge({"tests/test_foo.py": None, "scripts/foo.py": None, "scripts/foo2.py": None}).rows()
+        self.assertEqual((rows[4]["names_outside_prod"], rows[4]["names_absent"]), ({}, ["FooService", "bar_table"]))
 
     def test_a_name_in_production_raises_production_coverage_and_its_removal_lowers_it(self):
         self.repo.merge({"tests/test_foo.py": "FooService = None\n"})
@@ -1039,6 +1053,31 @@ class PageTest(unittest.TestCase):
         for gap, band in ((None, [35, 50]), (40, None)):  # no spec name in the code yet; no band
             error, panels, _ = drawn([dict(page_row(0, None, "origin", gap), code_churn=0, gap_chance_band=band)])
             self.assertIn("<dd>comparison unavailable</dd>", panels["readout"], (gap, band))
+
+    def test_the_readout_shows_both_name_shares_with_their_counts_and_the_names_behind_them(self):
+        row = dict(page_row(0, None, "origin", 40), code_churn=0, name_coverage=0.75, prod_name_coverage=0.25,
+                   spec_names=4, names_in_code=3, names_in_prod=1, names_absent=["gone_name"],
+                   names_outside_prod={"test_only": {"test": ["tests/test_a.py"], "tooling": ["scripts/a.py"]},
+                                       "other_one": {"other": ["x/<y>.txt"]}})
+        error, panels, _ = drawn([row])
+        self.assertIsNone(error)
+        self.assertIn("<dt>Spec names in code, all places</dt><dd>75.0% <small>3/4</small></dd>", panels["readout"])
+        self.assertIn("<dt>Spec names in production</dt><dd>25.0% <small>1/4</small></dd>", panels["readout"])
+        self.assertIn('<code>test_only</code> <span class="chip">test</span> <code class="path">tests/test_a.py</code>'
+                      ' <span class="chip">tooling</span> <code class="path">scripts/a.py</code>', panels["readout"])
+        self.assertIn('<code class="path">x/&lt;y&gt;.txt</code>', panels["readout"])
+        self.assertIn("Present only outside production <span class=\"num\">(2)</span>", panels["readout"])
+        self.assertIn("Absent from all scanned code <span class=\"num\">(1)</span>", panels["readout"])
+        self.assertIn("Test and tool names may legitimately be absent from production.", panels["readout"])
+        empty = dict(row, name_coverage=None, prod_name_coverage=None, spec_names=0, names_in_code=0, names_in_prod=0,
+                     names_absent=[], names_outside_prod={})
+        error, panels, _ = drawn([empty])
+        self.assertEqual(panels["readout"].count("<dd>not measured: no extracted spec names</dd>"), 2)
+        old = {k: v for k, v in row.items() if k not in ("spec_names", "names_outside_prod", "names_absent")}
+        error, panels, _ = drawn([old])  # data from before the counts were kept
+        self.assertIsNone(error)
+        self.assertIn("<dt>Spec names in code, all places</dt><dd>75.0%</dd>", panels["readout"])
+        self.assertNotIn("Present only outside production", panels["readout"])
 
     def test_a_short_history_draws_every_panel_or_says_why_not(self):
         # The kit's main: direct commits, then PRs on no day branch; a flat gap, no service code,

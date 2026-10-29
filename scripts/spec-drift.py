@@ -148,6 +148,8 @@ CAVEATS = [
     "and still describe it wrongly.",
     "A name a spec says should disappear still counts as shared vocabulary while the code has it.",
     "Name coverage counts test and tooling files as code.",
+    "Production name coverage counts only files the path rules call production: a path, not proof "
+    "that the file runs in the product. Test and tool names may legitimately be absent from it.",
 ]
 PAGE = os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir, "docs", "dashboard")
 # What git said about each merge, kept between runs: every call cached here names commits only by
@@ -286,6 +288,12 @@ def work_kind(path):
     if path.startswith(("scripts/", ".github/", "docs/dashboard/", "kit/", "experiments/")):
         return "tooling"
     return "prod"
+
+
+def place_of(path):
+    """Where a code name was found: the file's work_kind, or other for any box not in PLACES."""
+    w = work_kind(path)
+    return w if w in PLACES else "other"
 
 
 def broke(text):
@@ -488,7 +496,8 @@ def trajectory(snaps, blobs, order=()):
         specs/ is the spec side, every file in it: its break manifests copy the spec's names, and
         counted as code they narrowed the gap at #25 with no code changed.
         One count vector per place, by the file's work_kind: prod, test, tooling, and other for
-        any box else; summed, they are the all-code counts."""
+        any box else; summed, they are the all-code counts. The cache keeps each name's count per
+        path, so a merge's lists can say where a name is; the second return is name -> paths."""
         cached = CACHE.setdefault("code", {}).get(sha)
         if cached is None:
             out = subprocess.run(["git", "grep", "-z", "-I", "-w", "-F", "-f", "-", sha, "--", ".",
@@ -498,14 +507,17 @@ def trajectory(snaps, blobs, order=()):
             cached = {}
             for match in out.split("\n"):
                 where, _, text = match.partition("\0")  # -z: "<sha>:<path>\0<line>"
-                place = work_kind(where.split(":", 1)[-1])
-                place = place if place in PLACES else "other"
+                path = where.split(":", 1)[-1]
                 for line in text.splitlines():  # as the lines were read before the path was kept
                     for tok in code_names(line, index):
-                        cached.setdefault(tok, {}).setdefault(place, 0)
-                        cached[tok][place] += 1
+                        cached.setdefault(tok, {}).setdefault(path, 0)
+                        cached[tok][path] += 1
             CACHE["code"][sha] = cached
-        return {p: np.array([cached.get(v, {}).get(p, 0) for v in vocab], dtype=float) for p in PLACES}
+        counts = {p: np.zeros(len(vocab)) for p in PLACES}
+        for tok, paths in cached.items():
+            for path, n in paths.items() if tok in index else ():
+                counts[place_of(path)][index[tok]] += n
+        return counts, cached
 
     day, rows, ever = 0, [], np.zeros(len(vocab), dtype=bool)
     for i, s in enumerate(snaps):
@@ -514,7 +526,7 @@ def trajectory(snaps, blobs, order=()):
         m = re.match(r"day-(\d+)/", s["branch"])
         if m and s["kind"] in ("code", "close"):
             day = max(day, int(m.group(1)), key=rank)
-        spec, places = spec_counts(s["texts"]), code_counts(s["sha"])
+        spec, (places, where) = spec_counts(s["texts"]), code_counts(s["sha"])
         code = sum(places.values())
         reached = spec_counts({f: t for f, t in s["texts"].items() if day_of(f) and rank(day_of(f)) <= rank(max(day, 1))})
         added = deleted = 0
@@ -545,6 +557,12 @@ def trajectory(snaps, blobs, order=()):
         # counts beside it are its numerator and the all-code one, over spec_names.
         named = (spec > 0) & known
         prod_name_coverage = name_overlap(spec, places["prod"], known)[0]
+        # The names behind the two counts' difference, and behind the all-code miss: sorted, each
+        # outside-production name with the places it is in and its paths there.
+        outside = [vocab[k] for k in np.flatnonzero(named & in_code & (places["prod"] == 0))]
+        names_outside_prod = {v: {p: sorted(f for f in where[v] if place_of(f) == p)
+                                  for p in PLACES if any(place_of(f) == p for f in where[v])} for v in outside}
+        names_absent = [vocab[k] for k in np.flatnonzero(named & ~in_code)]
         ever |= in_code
         chance = chance_angle(spec_v, code_v, known)
         rows.append(dict(i=i, sha=s["sha"], date=s["date"], pr=s["pr"], title=s["title"], kind=s["kind"],
@@ -555,6 +573,7 @@ def trajectory(snaps, blobs, order=()):
                          name_coverage=name_coverage, jaccard=jaccard, names_kept=names_kept, names_retired=names_retired,
                          prod_name_coverage=prod_name_coverage, spec_names=int(named.sum()),
                          names_in_code=int((named & in_code).sum()), names_in_prod=int((named & (places["prod"] > 0)).sum()),
+                         names_outside_prod=names_outside_prod, names_absent=names_absent,
                          spec_files=spec_files, code_churn=churn, work=work))
     files = sorted({f for s in snaps for f in s["texts"] if f == "plan.md" or day_of(f)},
                    key=lambda f: (rank(day_of(f)), f))
