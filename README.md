@@ -1,11 +1,43 @@
 # Wordtally: an agent workflow experiment
 
-Wordtally is a small Python word counter used to test a larger system: spec-driven development
-with AI agents, independent audits, human-controlled PRs, executable evidence, and a dashboard
-that measures the work. It is a pilot of the
-[agentic workflow kit](https://github.com/Yusuprozimemet/agentic-workflow-kit).
+This work began with a monolith-to-microservices migration. The agentic development workflow
+used during that migration was extracted into a
+[reusable workflow kit](https://github.com/Yusuprozimemet/agentic-workflow-kit).
+Wordtally is the new application built to test that kit on a separate project: a small Python
+word counter that exercises spec-driven development, AI agents, independent audits,
+human-controlled PRs, executable evidence, and a dashboard that measures the work.
 
 The product is the test case. The workflow, its controls, and what they reveal are the experiment.
+
+## The bigger picture: migration to reusable workflow
+
+The migration is the origin of the kit; Wordtally is its pilot application. The feedback loop
+below shows how findings from building a new application inform workflow improvements and
+updates to the reusable kit. It describes the improvement cycle, not a claim that every
+Wordtally finding has already been applied upstream.
+
+```mermaid
+flowchart TD
+    Monolith["Monolithic application"] -->|"Migrate"| Services["Microservices-based application"]
+    Services -->|"Extract agentic workflow"| Kit["Reusable agentic workflow kit<br/>Specs, agents, checks, evidence and dashboard"]
+    Kit -->|"Test the kit and build"| Tally["New application: Wordtally<br/>Pilot on a separate, small project"]
+    Tally -->|"Measure and audit the workflow"| Optimize["Optimize workflow<br/>Findings, experiments and control improvements"]
+    Optimize -->|"Feed improvements back into the kit"| Kit
+    classDef origin fill:#FEE2E2,stroke:#DC2626,color:#7F1D1D
+    classDef migration fill:#DBEAFE,stroke:#2563EB,color:#1E3A8A
+    classDef reusable fill:#EDE9FE,stroke:#7C3AED,color:#4C1D95
+    classDef pilot fill:#DCFCE7,stroke:#16A34A,color:#14532D
+    classDef improvement fill:#FEF3C7,stroke:#B45309,color:#78350F
+    class Monolith origin
+    class Services migration
+    class Kit reusable
+    class Tally pilot
+    class Optimize improvement
+```
+
+The detailed maps below zoom into the Wordtally pilot: how the kit organizes development,
+what it observes, and how its own controls are tested. Wordtally is a fresh application,
+not a service extracted from the original monolith.
 
 ## Status and navigation
 
