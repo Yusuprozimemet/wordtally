@@ -128,7 +128,8 @@ implementer never commits or pushes.
 
 - A change that needs an edit to `tests/contract/`: the word rule, what counts as a word. Those
   tests are frozen (`spec-drift.config.json`, CI's "Frozen files stay unedited"); new tests
-  may be added beside them, in `tests/`.
+  may be added beside them, in `tests/`. Moving one out of `tests/contract/`, or any change that
+  lowers the count of `def test_` lines under `tests/`, fails the same check.
   That is the signal the spec's premise is wrong.
 - A criterion cannot be met as written. Record the departure; do not deviate silently.
 

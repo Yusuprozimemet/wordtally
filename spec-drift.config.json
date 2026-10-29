@@ -6,5 +6,6 @@
   "services": {},
   "infra_workflow": "",
   "areas": [],
-  "frozen": ["^tests/contract/"]
+  "frozen": ["^tests/contract/"],
+  "test_count": {"files": "^tests/(.+/)?test_[^/]*\\.py$", "test": "^\\s*def test_"}
 }
