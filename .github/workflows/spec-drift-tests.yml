@@ -9,7 +9,8 @@ name: Dashboard metric tests
 # puts the code back as it was, and scripts/test_relabel.py, which checks that the close's blind
 # relabel hides a defect's tags and finds where the rater disagrees, and scripts/test_evidence.py,
 # which checks that a ticked criterion's test, Verify line or break that does not hold up fails, and
-# scripts/test_seen_red.py, which checks that a track's tests are seen red on the code before it.
+# scripts/test_seen_red.py, which checks that a track's tests are seen red on the code before it, and
+# scripts/test_auditor_guard.py, which checks that the auditors' hook blocks writes and finds changes.
 
 on:
   # Every pull request, so the gate below always reports: a required check that never starts
@@ -35,7 +36,7 @@ jobs:
       - name: Compare with the base
         id: diff
         env:
-          PATHS: '^(scripts/(spec-drift|test_spec_drift|token-usage|test_token_usage|invariants|test_invariants|break|test_break|relabel|test_relabel|evidence|test_evidence|seen-red|test_seen_red)\.py$|spec-drift\.config\.json$|docs/dashboard/dashboard\.js$|kit/(compare-page\.py|page/.*)$|\.github/workflows/spec-drift-tests\.yml$)'
+          PATHS: '^(scripts/(spec-drift|test_spec_drift|token-usage|test_token_usage|invariants|test_invariants|break|test_break|relabel|test_relabel|evidence|test_evidence|seen-red|test_seen_red|auditor-guard|test_auditor_guard)\.py$|\.claude/agents/.*\.md$|spec-drift\.config\.json$|docs/dashboard/dashboard\.js$|kit/(compare-page\.py|page/.*)$|\.github/workflows/spec-drift-tests\.yml$)'
         run: |
           files=$(git diff --name-only HEAD^1 HEAD)
           if grep -qE "$PATHS" <<< "$files"; then run=true; else run=false; fi
@@ -59,6 +60,7 @@ jobs:
       - run: python scripts/test_relabel.py
       - run: python scripts/test_evidence.py
       - run: python scripts/test_seen_red.py
+      - run: python scripts/test_auditor_guard.py
 
   # What a copy of the kit starts with: kit/starter-check.py builds the pull request without kit/
   # and checks it. On every pull request, since any file can name the source project. Not in the

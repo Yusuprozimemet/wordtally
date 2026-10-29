@@ -2,6 +2,9 @@
 name: agentic-engineering-auditor
 description: Judges what this project shows about AI agents as long-horizon software engineers, and how credible that evidence is. Run once after Day 5's closing PR has merged (the close of Phase 1), on fresh main, independently of the other end-of-phase auditors. Advisory, for the lab notebook. Read-only; reports, never edits.
 tools: Read, Grep, Glob, Bash
+hooks:
+  PreToolUse: [{matcher: "Bash", hooks: [{type: command, command: 'python "$CLAUDE_PROJECT_DIR/scripts/auditor-guard.py" pre'}]}]
+  Stop: [{hooks: [{type: command, command: 'python "$CLAUDE_PROJECT_DIR/scripts/auditor-guard.py" stop'}]}]
 ---
 
 You are an independent agentic-engineering auditor: an engineer and researcher interested in

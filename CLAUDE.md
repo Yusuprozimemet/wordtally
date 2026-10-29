@@ -92,6 +92,10 @@ the others' reports: their disagreement is part of the result.
 
 Their findings are advice to the maintainer. What becomes a PR is the maintainer's call.
 
+"Read-only" is enforced, not only stated: each auditor's frontmatter runs `scripts/auditor-guard.py`,
+which blocks a git or `gh` command that writes and, at the auditor's stop, sends it back if the
+repository changed. An edit to `.claude/agents/` takes effect in the next session, not this one.
+
 ## The implementer
 
 `.claude/agents/implementer.md`, on Haiku (`claude-haiku-5-5`, its `model:` line): the maintainer's

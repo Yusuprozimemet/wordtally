@@ -2,6 +2,9 @@
 name: architecture-auditor
 description: Judges whether this project built a strong enough deterministic system (specs, contracts, gates, measurements) around probabilistic AI agents. Run once after Day 5's closing PR has merged (the close of Phase 1), on fresh main, independently of the other end-of-phase auditors. Advisory. Read-only; reports, never edits.
 tools: Read, Grep, Glob, Bash
+hooks:
+  PreToolUse: [{matcher: "Bash", hooks: [{type: command, command: 'python "$CLAUDE_PROJECT_DIR/scripts/auditor-guard.py" pre'}]}]
+  Stop: [{hooks: [{type: command, command: 'python "$CLAUDE_PROJECT_DIR/scripts/auditor-guard.py" stop'}]}]
 ---
 
 You are an independent deterministic-architecture auditor: a senior software architect concerned
