@@ -257,6 +257,7 @@ def code_like(tok):
 
 
 WORK_KINDS = ("spec", "context", "prod", "test", "tooling")
+PLACES = ("prod", "test", "tooling", "other")  # where a code name was found: a work kind, or other for the rest
 NOT_WRITTEN = re.compile(r"(^|/)package-lock\.json$|^docs/dashboard/token-usage\.json$|^docs/dashboard/deployment\.json$|^screenshots/")
 TEST_PATH = re.compile(r"(^|/)tests?/|(^|/)(test_[^/]*|[^/]*_test|conftest)\.py$|(Test|Tests|IT)\.java$"
                        r"|\.(test|spec)\.[jt]sx?$")
@@ -270,7 +271,9 @@ def renamed_to(path):
 
 def work_kind(path):
     """Which box a changed file's lines go in; the first rule that matches wins. None: generated
-    by a tool, not written, so not counted."""
+    by a tool, not written, so not counted. A path no rule names is prod: the package, and also
+    root files such as a config. experiments/ is tooling: E1's cases copy spec text, and as prod
+    they raised production name coverage at #30 with no product code changed."""
     if NOT_WRITTEN.search(path):
         return None
     if path == "plan.md" or path.startswith("specs/"):
@@ -280,7 +283,7 @@ def work_kind(path):
         return "context"
     if TEST_PATH.search(path):
         return "test"
-    if path.startswith(("scripts/", ".github/", "docs/dashboard/", "kit/")):
+    if path.startswith(("scripts/", ".github/", "docs/dashboard/", "kit/", "experiments/")):
         return "tooling"
     return "prod"
 
@@ -483,20 +486,26 @@ def trajectory(snaps, blobs, order=()):
         by born), and a SHA fixes its history, so counts cached under it stay right. kit/ is the
         starter cleanup's tooling and the source project's data, which a copy deletes: not this project's code.
         specs/ is the spec side, every file in it: its break manifests copy the spec's names, and
-        counted as code they narrowed the gap at #25 with no code changed."""
+        counted as code they narrowed the gap at #25 with no code changed.
+        One count vector per place, by the file's work_kind: prod, test, tooling, and other for
+        any box else; summed, they are the all-code counts."""
         cached = CACHE.setdefault("code", {}).get(sha)
-        if cached is not None:
-            return np.array([cached.get(v, 0) for v in vocab], dtype=float)
-        out = subprocess.run(["git", "grep", "-h", "-I", "-w", "-F", "-f", "-", sha, "--", ".",
-                              ":(exclude)*.md", ":(exclude)data", ":(exclude)screenshots", ":(exclude)docs/dashboard",
-                              ":(exclude)**/package-lock.json", ":(exclude)kit", ":(exclude)specs"], input=patterns,
-                             capture_output=True, text=True, encoding="utf-8", errors="replace").stdout
-        c = np.zeros(len(vocab))
-        for line in out.splitlines():
-            for tok in code_names(line, index):
-                c[index[tok]] += 1
-        CACHE["code"][sha] = {vocab[k]: int(n) for k, n in enumerate(c) if n}
-        return c
+        if cached is None:
+            out = subprocess.run(["git", "grep", "-z", "-I", "-w", "-F", "-f", "-", sha, "--", ".",
+                                  ":(exclude)*.md", ":(exclude)data", ":(exclude)screenshots", ":(exclude)docs/dashboard",
+                                  ":(exclude)**/package-lock.json", ":(exclude)kit", ":(exclude)specs"], input=patterns,
+                                 capture_output=True, text=True, encoding="utf-8", errors="replace").stdout
+            cached = {}
+            for match in out.split("\n"):
+                where, _, text = match.partition("\0")  # -z: "<sha>:<path>\0<line>"
+                place = work_kind(where.split(":", 1)[-1])
+                place = place if place in PLACES else "other"
+                for line in text.splitlines():  # as the lines were read before the path was kept
+                    for tok in code_names(line, index):
+                        cached.setdefault(tok, {}).setdefault(place, 0)
+                        cached[tok][place] += 1
+            CACHE["code"][sha] = cached
+        return {p: np.array([cached.get(v, {}).get(p, 0) for v in vocab], dtype=float) for p in PLACES}
 
     day, rows, ever = 0, [], np.zeros(len(vocab), dtype=bool)
     for i, s in enumerate(snaps):
@@ -505,7 +514,8 @@ def trajectory(snaps, blobs, order=()):
         m = re.match(r"day-(\d+)/", s["branch"])
         if m and s["kind"] in ("code", "close"):
             day = max(day, int(m.group(1)), key=rank)
-        spec, code = spec_counts(s["texts"]), code_counts(s["sha"])
+        spec, places = spec_counts(s["texts"]), code_counts(s["sha"])
+        code = sum(places.values())
         reached = spec_counts({f: t for f, t in s["texts"].items() if day_of(f) and rank(day_of(f)) <= rank(max(day, 1))})
         added = deleted = 0
         for line in at_commits("diff", "--numstat", snaps[0]["sha"], s["sha"], "--", "plan.md", "specs").splitlines():
@@ -531,6 +541,10 @@ def trajectory(snaps, blobs, order=()):
         # A name the code had at an earlier merge and lacks now: `ever` holds only the merges before this one.
         in_code = (code > 0) & known
         names_retired = int(((spec > 0) & known & ~in_code & ever).sum())
+        # Production coverage: the same share, of the names in files work_kind calls prod; the
+        # counts beside it are its numerator and the all-code one, over spec_names.
+        named = (spec > 0) & known
+        prod_name_coverage = name_overlap(spec, places["prod"], known)[0]
         ever |= in_code
         chance = chance_angle(spec_v, code_v, known)
         rows.append(dict(i=i, sha=s["sha"], date=s["date"], pr=s["pr"], title=s["title"], kind=s["kind"],
@@ -539,6 +553,8 @@ def trajectory(snaps, blobs, order=()):
                          gap_chance=chance and chance[0], gap_chance_band=chance and chance[1:],
                          coverage=round(float((code[mask] > 0).mean()), 3) if s["pr"] and mask.any() else None,
                          name_coverage=name_coverage, jaccard=jaccard, names_kept=names_kept, names_retired=names_retired,
+                         prod_name_coverage=prod_name_coverage, spec_names=int(named.sum()),
+                         names_in_code=int((named & in_code).sum()), names_in_prod=int((named & (places["prod"] > 0)).sum()),
                          spec_files=spec_files, code_churn=churn, work=work))
     files = sorted({f for s in snaps for f in s["texts"] if f == "plan.md" or day_of(f)},
                    key=lambda f: (rank(day_of(f)), f))

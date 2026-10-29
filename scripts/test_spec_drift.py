@@ -135,6 +135,35 @@ class SpecDriftTest(unittest.TestCase):
         rows = self.repo.merge({"tests/test_foo.py": "FooService = None\n", "scripts/bar.py": "bar_table = 1\n"}).rows()
         self.assertEqual(rows[1]["name_coverage"], 1.0)
 
+    def test_a_name_only_in_a_test_or_a_script_is_code_but_not_production(self):
+        self.addCleanup(sd.CACHE.clear)
+        rows = self.repo.merge({"tests/test_foo.py": "FooService = None\n", "scripts/bar.py": "bar_table = 1\n",
+                                "experiments/e1/cases.json": '{"names": "FooService bar_table"}\n'}).rows()
+        self.assertEqual((rows[1]["name_coverage"], rows[1]["prod_name_coverage"]), (1.0, 0.0))
+        self.assertEqual((rows[1]["spec_names"], rows[1]["names_in_code"], rows[1]["names_in_prod"]), (2, 2, 0))
+        self.assertEqual(sd.CACHE["code"][self.repo.snaps[1]["sha"]],
+                         {"FooService": {"test": 1, "tooling": 1}, "bar_table": {"tooling": 2}})
+
+    def test_a_name_in_production_raises_production_coverage_and_its_removal_lowers_it(self):
+        self.repo.merge({"tests/test_foo.py": "FooService = None\n"})
+        rows = self.repo.merge({"src/Foo.java": "class FooService {}\n"}).rows()
+        self.assertEqual([r["prod_name_coverage"] for r in rows], [0.0, 0.0, 0.5])
+        self.assertEqual([r["names_in_prod"] for r in rows], [0, 0, 1])
+        rows = self.repo.merge({"src/Foo.java": None}).rows()
+        self.assertEqual((rows[3]["name_coverage"], rows[3]["prod_name_coverage"]), (0.5, 0.0))
+
+    def test_a_line_is_split_where_it_was_before_the_path_was_kept(self):
+        # str.splitlines also ends a line at a form feed; git grep does not, so after a comment the name still counts.
+        rows = self.repo.merge({"src/Foo.java": "// note\x0cclass FooService {}\n"}).rows()
+        self.assertEqual((rows[1]["name_coverage"], rows[1]["names_in_prod"]), (0.5, 1))
+
+    def test_production_coverage_skips_comments_and_with_no_spec_name_is_not_measured(self):
+        rows = self.repo.merge({"src/Foo.java": "// FooService\nclass Foo {} // bar_table\n"}).rows()
+        self.assertEqual((rows[1]["prod_name_coverage"], rows[1]["names_in_prod"]), (0.0, 0))
+        rows = self.repo.merge({"plan.md": "# Plan\n", "specs/day-01-x.md": "# Day 01\n",
+                                "src/Foo.java": "class FooService { bar_table b; }\n"}).rows()
+        self.assertEqual((rows[2]["prod_name_coverage"], rows[2]["name_coverage"], rows[2]["spec_names"]), (None, None, 0))
+
     def test_a_failed_blob_read_names_the_commit_and_the_path(self):
         sha = self.repo.snaps[0]["sha"]
 
@@ -201,6 +230,8 @@ class SpecDriftTest(unittest.TestCase):
                           ("scripts/test_spec_drift.py", "test"), ("data/tests/conftest.py", "test"), ("web/a.spec.ts", "test"),
                           ("scripts/spec-drift.py", "tooling"), (".github/workflows/ci.yml", "tooling"),
                           ("docs/dashboard/dashboard.js", "tooling"), ("backend/app/src/main/java/x/Latest.java", "prod"),
+                          ("wordtally/count.py", "prod"), ("tests/contract/test_word_rule.py", "test"),
+                          ("experiments/jev/e1/build.py", "tooling"), ("experiments/jev/e1/test_build.py", "test"),
                           ("docker-compose.yml", "prod"), ("docs/dashboard/token-usage.json", None),
                           ("docs/dashboard/deployment.json", None),
                           ("frontend/package-lock.json", None), ("screenshots/a.png", None)]:
