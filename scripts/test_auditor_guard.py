@@ -1,6 +1,7 @@
 """scripts/auditor-guard.py blocks an auditor's writing commands and finds what got past it. The
 command tests read command text; the stop tests change a scratch repository between the auditor's
-first command and its stop; the last checks that every auditor's frontmatter wires both hooks.
+first command and its stop; the settings tests check that .claude/settings.json wires both hooks,
+that the guard acts for the five auditors, and that it lets the main session and other agents by.
 
     python scripts/test_auditor_guard.py
 """
@@ -17,6 +18,7 @@ import unittest
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCRIPT = os.path.join(HERE, "auditor-guard.py")
 AGENTS = os.path.join(HERE, os.pardir, ".claude", "agents")
+SETTINGS = os.path.join(HERE, os.pardir, ".claude", "settings.json")
 _spec = importlib.util.spec_from_file_location("auditor_guard", SCRIPT)
 guard = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(guard)
@@ -53,8 +55,8 @@ class CommandTest(unittest.TestCase):
 
     def test_the_hook_exits_2_with_the_reason(self):
         def hook(command):
-            data = {"hook_event_name": "PreToolUse", "agent_id": "t", "tool_name": "Bash",
-                    "tool_input": {"command": command}}
+            data = {"hook_event_name": "PreToolUse", "agent_id": "t", "agent_type": "spec-auditor",
+                    "tool_name": "Bash", "tool_input": {"command": command}}
             env = dict(os.environ, CLAUDE_PROJECT_DIR=self.repo, TMP=self.repo, TEMP=self.repo,
                        TMPDIR=self.repo)  # the snapshot lands in the scratch directory
             return subprocess.run([sys.executable, SCRIPT, "pre"], input=json.dumps(data),
@@ -83,7 +85,7 @@ class StopTest(unittest.TestCase):
         _git(self.repo, "commit", "-q", "-m", "a")
 
     def audit(self, change, stop_hook_active=False):
-        data = {"agent_id": "t", "tool_input": {"command": "git log"}}
+        data = {"agent_id": "t", "agent_type": "plan-auditor", "tool_input": {"command": "git log"}}
         self.assertEqual(guard.run("pre", data, self.repo, self.store), (0, ""))
         change()
         return guard.run("stop", dict(data, stop_hook_active=stop_hook_active), self.repo, self.store)
@@ -113,7 +115,8 @@ class StopTest(unittest.TestCase):
 
     def test_the_second_stop_ends_and_tells_the_main_session(self):
         self.audit(lambda: self.write("a.txt"))
-        code, message = guard.run("stop", {"agent_id": "t", "stop_hook_active": True}, self.repo, self.store)
+        code, message = guard.run("stop", {"agent_id": "t", "agent_type": "plan-auditor",
+                                           "stop_hook_active": True}, self.repo, self.store)
         self.assertEqual(code, 0)
         self.assertIn("a.txt", json.loads(message)["systemMessage"])
         self.assertEqual(os.listdir(self.store), [])
@@ -123,23 +126,40 @@ class StopTest(unittest.TestCase):
         self.assertEqual(os.listdir(self.store), [])
 
     def test_no_command_run_no_snapshot_stops_clean(self):
-        self.assertEqual(guard.run("stop", {"agent_id": "t"}, self.repo, self.store), (0, ""))
+        data = {"agent_id": "t", "agent_type": "plan-auditor"}
+        self.assertEqual(guard.run("stop", data, self.repo, self.store), (0, ""))
 
 
-class FrontmatterTest(unittest.TestCase):
-    def test_every_auditor_wires_both_hooks(self):
-        auditors = 0
+class SettingsTest(unittest.TestCase):
+    def test_the_settings_wire_both_hooks(self):
+        with open(SETTINGS, encoding="utf-8") as f:
+            hooks = json.load(f)["hooks"]
+        def commands(event, matcher=None):
+            return [h["command"] for entry in hooks.get(event, []) if entry.get("matcher") == matcher
+                    for h in entry["hooks"]]
+        self.assertRegex(" ".join(commands("PreToolUse", "Bash")), r'auditor-guard\.py" pre$')
+        self.assertRegex(" ".join(commands("SubagentStop")), r'auditor-guard\.py" stop$')
+
+    def test_the_guard_acts_for_the_five_auditors(self):
+        auditors = set()
         for name in sorted(os.listdir(AGENTS)):
             with open(os.path.join(AGENTS, name), encoding="utf-8") as f:
                 front = f.read().split("\n---", 1)[0]
+            self.assertNotIn("\nhooks:", front, name)  # VS Code's Claude Code ignores these
             tools = re.search(r"^tools: (.*)$", front, re.M).group(1)
-            if "Read-only" not in front or "Bash" not in tools:
-                continue
-            auditors += 1
-            with self.subTest(agent=name):
-                self.assertRegex(front, r'(?s)PreToolUse:.*matcher: "?Bash.*auditor-guard\.py" pre')
-                self.assertRegex(front, r'(?s)Stop:.*auditor-guard\.py" stop')
-        self.assertEqual(auditors, 5)
+            if "Read-only" in front and "Bash" in tools:
+                auditors.add(re.search(r"^name: (.*)$", front, re.M).group(1).strip())
+        self.assertEqual((len(auditors), auditors), (5, guard.AUDITORS))
+
+    def test_lets_the_main_session_and_other_agents_by(self):
+        store = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, store, True)
+        for agent_type in (None, "implementer", "general-purpose"):
+            with self.subTest(agent_type=agent_type):
+                data = {"agent_type": agent_type, "tool_input": {"command": "git checkout main"}}
+                self.assertEqual(guard.run("pre", data, store, store), (0, ""))
+                self.assertEqual(guard.run("stop", data, store, store), (0, ""))
+                self.assertEqual(os.listdir(store), [])
 
 
 if __name__ == "__main__":

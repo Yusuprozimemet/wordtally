@@ -1,7 +1,13 @@
-"""The auditors only read: a hook in each auditor's frontmatter (.claude/agents/) makes it so.
+"""The auditors only read: a hook in the project settings (.claude/settings.json) makes it so.
 
     python scripts/auditor-guard.py pre     # PreToolUse on Bash: exit 2 blocks a writing command
-    python scripts/auditor-guard.py stop    # Stop (SubagentStop): exit 2 if the repository changed
+    python scripts/auditor-guard.py stop    # SubagentStop: exit 2 if the repository changed
+
+The hooks run for every Bash command and every subagent's stop; the guard acts only when the
+hook's `agent_type` is one of AUDITORS, the five agents whose brief says "Read-only" and that have
+Bash, and lets the main session and every other agent through. Hooks in an agent's frontmatter
+were the first wiring (#46): the terminal's Claude Code 2.1.170 ran them, the VS Code extension's
+2.1.312 ignored them. Settings hooks run on both, inside subagents.
 
 Each brief said "Read-only", and all but the defect-rater had Bash to break it with; one auditor
 ran `git checkout main` in a replay clone. `pre` blocks, wherever it points, a git command that
@@ -45,6 +51,8 @@ GH_FIELD_FLAGS = {"-f", "-F", "--field", "--raw-field", "--input"}
 WRAPPERS = {"env", "command", "time", "nohup", "xargs", "sudo", "exec", "then", "do", "else",
             "if", "while", "until", "!", "{", "}"}
 SHELLS = {"bash", "sh", "zsh", "powershell", "pwsh"}
+AUDITORS = {"plan-auditor", "spec-auditor", "security-ops-auditor", "agentic-engineering-auditor",
+            "architecture-auditor"}
 SEPARATORS = {";", "|", "||", "&", "&&", "(", ")", ">", ">>", "<", "<<", "|&", ";;"}
 
 
@@ -169,6 +177,8 @@ def changes(before, after):
 
 def run(mode, data, repo, store):
     """The exit code and the message for one hook call."""
+    if data.get("agent_type") not in AUDITORS:
+        return 0, ""
     snapshot = os.path.join(store, f"{data.get('agent_id') or 'main'}.json")
     if mode == "pre":
         reason = blocked((data.get("tool_input") or {}).get("command", ""))

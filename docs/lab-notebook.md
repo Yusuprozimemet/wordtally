@@ -337,3 +337,11 @@ branch, a ref, the stash or `git status` changed since its first command.
   the command; the stop check finds it in this repository, not in another clone.
 - *Tests:* nine in `scripts/test_auditor_guard.py`, one of which counts the five wired auditors.
   Fourteen breaks, one per rule, each failed by assertion.
+- *Correction (tooling/auditor-guard-settings):* "after, in a fresh session" covered only the
+  terminal's Claude Code, 2.1.170. The VS Code extension's bundled 2.1.312 ignores hooks in an
+  agent's frontmatter: a spec-auditor's `git fetch --dry-run` in a scratch clone ran there and was
+  blocked on 2.1.170. The hooks moved to `.claude/settings.json`, which both versions run inside
+  subagents with `agent_type` set; the guard acts only for the five auditors. Verified live with
+  `claude -p` on both versions: the auditor's fetch blocked, the main session's not. The
+  frontmatter test became three settings tests (eleven in all); five breaks, each failed by
+  assertion.
