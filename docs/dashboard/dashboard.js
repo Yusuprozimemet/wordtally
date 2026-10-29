@@ -6,6 +6,10 @@ const KIND = { spec: "Spec change", code: "Code track", close: "Close the day", 
 const KVAR = { spec: "var(--spec)", code: "var(--code)", close: "var(--close)", other: "var(--other)", origin: "var(--muted)" };
 const fmt = (x, d = 1) => x == null ? "–" : Number(x).toFixed(d);
 const band = b => b == null ? "–" : `${fmt(b[0])}–${fmt(b[1])}°`;
+// Where a merge's gap sits against its shuffled counts' 95% band, endpoints inside. It says how the
+// gap compares, not that the code is right or that the difference is significant.
+const bandPlace = r => r.gap_full == null || r.gap_chance_band == null ? "comparison unavailable" :
+  `${r.gap_full < r.gap_chance_band[0] ? "below" : r.gap_full > r.gap_chance_band[1] ? "above" : "inside"} the shuffled-count reference band`;
 // PR titles come from anyone who opens a pull request, so everything from the data is escaped.
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 const md = s => esc(s)
@@ -169,6 +173,7 @@ function drawReadout() {
       <dt>Names the specs dropped, still in code</dt><dd>${s.names_kept ?? "–"}</dd><dd class="spark">${sparkHtml("kept")}</dd>
       <dt>Spec names retired from the code</dt><dd>${s.names_retired ?? "–"}</dd><dd class="spark">${sparkHtml("retired")}</dd>
       <dt>Spec–code name-gap angle (secondary)</dt><dd>${fmt(s.gap_full, 2)}° <span style="color:var(--muted)">(${sign(dGap)})</span></dd><dd class="spark">${sparkHtml("gap")}</dd>
+      <dt>Against shuffled counts (95%: ${band(s.gap_chance_band)})</dt><dd>${bandPlace(s)}</dd><dd></dd>
       <dt>Reached-day names in code</dt><dd>${s.coverage == null ? "–" : fmt(s.coverage * 100, 1) + "%"}</dd><dd class="spark">${sparkHtml("coverage")}</dd>
       <dt>Code lines changed</dt><dd>${s.code_churn.toLocaleString()}</dd><dd class="spark">${sparkHtml("code")}</dd>
       <dt>Spec lines changed</dt><dd>${edits.reduce((a, b) => a + b[1], 0)}</dd><dd class="spark">${sparkHtml("spec")}</dd>

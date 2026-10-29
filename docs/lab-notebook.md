@@ -141,7 +141,16 @@ record their findings and pause, not fix them now.
 They disagreed on whether the frozen word rule is safe. The plan-auditors ran the diff on
 `tests/contract/` and found it unedited. The architecture auditor showed two ways that check
 misses (open items 4 and 5). They also disagreed on whether the measurements say anything: the
-counts check out, but the gap metric is null on every row, and every estimate was 3→3.
+counts check out, but the gap metric stayed inside its shuffled-count reference band after the
+first row, and every estimate was 3→3.
+
+*Correction, 2026-10-29:* this paragraph first said the gap was "null on every row". Rerun on
+`main` at 2807b76 (git history only, no cache), only the first row's gap is null, and all 23
+merges from #1 to #23 sit inside their band: at #19, Day 5's close, 46.89° against
+35.30–51.04°. That is what the paragraph now says; why the first draft said null was not
+established. The same rerun found the code count read break manifests under `specs/` as code:
+they moved #25's gap to 21.02°, below its band, with no code changed. Excluding `specs/` puts
+it back at 36.20°, inside 35.63–51.42°; Day 1–5 values do not change.
 
 ### Lessons
 

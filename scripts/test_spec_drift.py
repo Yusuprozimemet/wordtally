@@ -122,6 +122,19 @@ class SpecDriftTest(unittest.TestCase):
         self.assertEqual((rows[2]["name_coverage"], rows[2]["jaccard"]), (1.0, 0.5))  # bar_table: code only
         self.assertEqual((rows[1]["names_kept"], rows[2]["names_kept"]), (0, 1))
 
+    def test_a_file_under_specs_is_never_code_whatever_its_extension(self):
+        # A break manifest copies the spec's names: at #25 one moved the gap with no code changed.
+        rows = self.repo.merge({"src/Foo.java": "class FooService {}\n"}).rows()
+        rows = self.repo.merge({"specs/breaks/day-01.json": '{"names": ["FooService", "bar_table"]}\n',
+                                "specs/notes.py": "bar_table = 1\n"}).rows()
+        for field in ("gap_full", "name_coverage", "jaccard", "coverage"):
+            self.assertEqual(rows[2][field], rows[1][field], field)
+        self.assertEqual(rows[2]["name_coverage"], 0.5)  # bar_table is only under specs/
+
+    def test_a_name_in_a_test_or_a_script_still_counts_as_code(self):
+        rows = self.repo.merge({"tests/test_foo.py": "FooService = None\n", "scripts/bar.py": "bar_table = 1\n"}).rows()
+        self.assertEqual(rows[1]["name_coverage"], 1.0)
+
     def test_a_failed_blob_read_names_the_commit_and_the_path(self):
         sha = self.repo.snaps[0]["sha"]
 
@@ -984,6 +997,17 @@ class PageTest(unittest.TestCase):
                 dict(a_day(29), status="cut")]
         eyebrow, _ = page([page_row(0, None, "origin", 50)], days, [12, 18, 17, 36, 40], current_day=12)
         self.assertIn("· Day 12 of 6 ·", eyebrow)
+
+    def test_the_readout_places_the_gap_against_its_shuffled_band_endpoints_inside(self):
+        for gap, band, place in ((40, [35, 50], "inside"), (35, [35, 50], "inside"), (50, [35, 50], "inside"),
+                                 (21.02, [35.69, 50.92], "below"), (50.01, [35, 50], "above")):
+            row = dict(page_row(0, None, "origin", gap), code_churn=0, gap_chance_band=band)
+            error, panels, _ = drawn([row])
+            self.assertIsNone(error)
+            self.assertIn(f"<dd>{place} the shuffled-count reference band</dd>", panels["readout"], (gap, band))
+        for gap, band in ((None, [35, 50]), (40, None)):  # no spec name in the code yet; no band
+            error, panels, _ = drawn([dict(page_row(0, None, "origin", gap), code_churn=0, gap_chance_band=band)])
+            self.assertIn("<dd>comparison unavailable</dd>", panels["readout"], (gap, band))
 
     def test_a_short_history_draws_every_panel_or_says_why_not(self):
         # The kit's main: direct commits, then PRs on no day branch; a flat gap, no service code,
