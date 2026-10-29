@@ -177,6 +177,9 @@ def main(argv=None):
     with open(os.path.join(HERE, "cases.json"), encoding="utf-8") as f:
         cases = json.load(f)
     os.chdir(ROOT)
+    # C4.2's break makes --stopwords take the file's name, and wordtally then reads standard input:
+    # the checks inherit it, so a terminal's would wait for ever.
+    os.dup2(os.open(os.devnull, os.O_RDONLY), 0)
     out = build(criteria(args.ref), cases)
     data = json.dumps(out, ensure_ascii=False, sort_keys=True, indent=1).encode("utf-8")
     os.makedirs(args.out, exist_ok=True)
