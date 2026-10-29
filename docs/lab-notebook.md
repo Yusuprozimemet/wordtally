@@ -286,3 +286,17 @@ Windows, which glob keeps on every path it yields; other platforms are untouched
   characters) give the same files and the same 28 rows with `main`'s script and the new one.
 - *Test:* `tests/test_token_usage.py`, the first on this script, red on `main` (the long
   transcript missing), green after; on Linux CI it passes either way.
+
+**`scripts/track-red.py` fails a spec whose criteria it cannot read.** A follow-up to #41; no day
+hit it. A missing `Test:` already failed, but a `new` criterion the pattern missed was no criterion
+at all, so the track was "not applicable" and passed: reproduced, exit 0, with the tag written
+`**New**` or not bold, a `*` list marker, the section titled "Acceptance Criteria", and a `new` C1.1
+repeated as a `hold`, which kept only the `hold`. Each now fails with one line, whichever track the
+branch is; so does a section with no criterion. A `Test:` with no backticked name already failed;
+its line now says so.
+
+- *No false alarm on what exists:* all 32 versions of the day specs in the history read with no
+  problem. The template's `CNN.1` placeholder would fail; it is not a day spec.
+- *Tests:* three in `scripts/test_track_red.py`. On `main`'s script the end-to-end one fails by
+  assertion (exit 0, not 1); the two parse ones error, as `unread` is new. Five breaks, one per
+  rule, each failed by assertion.

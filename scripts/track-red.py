@@ -13,6 +13,9 @@ tests that pin what holds, and is not a track):
   (`C2.1`, `C2.1–C2.3`), and a `new` criterion no row names fails.
 - Only a `new` criterion's `Test:` field is read: the backticked names right after it. All `hold`
   passes; a `new` one with no `Test:`, or a name that matches no test here, fails.
+- The spec must be readable, or a `new` criterion passes unseen: no Acceptance criteria section,
+  none in it, an item at the margin that is not `- [ ] CN.N **new**` or `**hold**`, or a repeated
+  id fails, whichever track the branch is.
 - Each test runs alone on the base (seen-red.py's `on_base`) and here. There it must report
   "FAILED (failures=N)", not `errors=` (an import, not the assertion); here, "OK".
 
@@ -33,6 +36,7 @@ git = seen_red.git
 
 TRACK_BRANCH = re.compile(r"^day-(\d{2})/track-([0-9a-z]+)(?=-|$)")  # pr-names.py's BRANCH_TRACK
 CRITERION = re.compile(r"^- \[[ xX]\] (C\d+\.\d+) \*\*(new|hold)\*\*", re.M)
+LIST_ITEM = re.compile(r"^[-*+] .*$", re.M)  # an item at the margin; a criterion's wrap is indented
 TEST_FIELD = re.compile(r"Test:\s*((?:`[^`]+`(?:\s*,?\s*(?:and\s+)?(?=`))?)+)")
 NAMED = re.compile(r"C(\d+)\.(\d+)(?:\s*[–-]\s*C?\1\.(\d+))?")
 ROW = re.compile(r"^\|\s*([0-9A-Za-z]+)\s*\|(.*)\|\s*$", re.M)
@@ -59,6 +63,20 @@ def criteria(spec):
         field = TEST_FIELD.search(block)
         found[m.group(1)] = (m.group(2), re.findall(r"`([^`]+)`", field.group(1)) if field else [])
     return found
+
+
+def unread(spec):
+    """What in the Acceptance criteria the check cannot read. Each would pass unseen: a `new` line
+    the pattern misses is no criterion, and a repeated id keeps only its last tag."""
+    if not re.search(r"^## Acceptance criteria\s*$", spec, re.M):
+        return ["the spec has no `## Acceptance criteria` section"]
+    body = section(spec, "Acceptance criteria")
+    problems = [f'cannot read "{line[:40].rstrip()}" as `- [ ] CN.N **new**` or `**hold**`'
+                for line in LIST_ITEM.findall(body) if not CRITERION.match(line)]
+    ids = [m.group(1) for m in CRITERION.finditer(body)]
+    if not ids and not problems:
+        problems.append("the Acceptance criteria section lists no criterion")
+    return problems + [f"{c} is listed {ids.count(c)} times" for c in dict.fromkeys(ids) if ids.count(c) > 1]
 
 
 def tracks(spec):
@@ -125,9 +143,12 @@ def main(args=None):
     if len(paths) != 1:
         print(f"FAIL: {len(paths)} specs match specs/day-{day}-*.md on {base}; the check needs one")
         return 1
-    ours, problems = owned(git("show", f"{base}:{paths[0]}"), track)
+    text = git("show", f"{base}:{paths[0]}")
+    ours, problems = owned(text, track)
+    problems = unread(text) + problems
     new = {c: names for c, (tag, names) in ours.items() if tag == "new"}
-    problems += [f"{c} is new and has no Test: field" for c, names in new.items() if not names]
+    problems += [f"{c} is new and has no Test: field naming a test in backticks"
+                 for c, names in new.items() if not names]
     if not new and not problems:
         print(f"not applicable: track {track.upper()} of Day {day} owns no new criterion "
               f"(hold: {', '.join(ours) or 'none'})")
