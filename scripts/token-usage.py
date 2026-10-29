@@ -30,12 +30,21 @@ DAY_BRANCH = re.compile(r"^day-(\d+)/")
 DATED = re.compile(r"-\d{8}$")
 
 
+def long_path(path):
+    # Windows refuses a path past MAX_PATH (260 characters) unless it is absolute and starts with
+    # \\?\: open() raises, and glob skips a folder past the limit without a word. glob keeps the
+    # prefix on every path it yields, so prefixing the root reaches every open. UNC paths are left as they are.
+    if os.name != "nt" or path.startswith("\\\\"):
+        return path
+    return "\\\\?\\" + os.path.abspath(path)
+
+
 def transcripts(root):
     # Claude Code names a project's folder after its path, every character but letters and digits
     # turned into "-"; a worktree of this repository, under its .claude/worktrees/, gets the same name
     # and "--". A sibling folder whose name only starts with this one's is another project.
     name = re.sub(r"[^A-Za-z0-9]", "-", os.path.abspath(os.path.join(HERE, os.pardir))).lower()
-    for folder in glob.glob(os.path.join(root, "*")):
+    for folder in glob.glob(os.path.join(long_path(root), "*")):
         base = os.path.basename(folder).lower()
         if base == name or base.startswith(name + "--"):
             yield from glob.glob(os.path.join(folder, "**", "*.jsonl"), recursive=True)

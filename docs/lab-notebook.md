@@ -275,3 +275,14 @@ still runs from a fresh context and only reports.
   the plan-auditor and the three end-of-phase agents.
 - *What it matches:* Day 5's audits were recorded in #21, which merged after its closing PR,
   #19. The written order now says what was done.
+
+**`scripts/token-usage.py` reads transcripts past 260 characters on Windows.** The maintainer's
+request; no day hit it. Without `LongPathsEnabled`, `open` on a 370-character transcript raised
+"FileNotFoundError: [Errno 2] No such file or directory", and glob skipped a folder past the limit
+without a word, so its tokens went uncounted. The transcripts root now gets the `\\?\` prefix on
+Windows, which glob keeps on every path it yields; other platforms are untouched.
+
+- *Same output where it already worked:* this machine's 143 transcripts (longest path 157
+  characters) give the same files and the same 28 rows with `main`'s script and the new one.
+- *Test:* `tests/test_token_usage.py`, the first on this script, red on `main` (the long
+  transcript missing), green after; on Linux CI it passes either way.
