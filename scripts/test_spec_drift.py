@@ -1210,6 +1210,110 @@ class PageTest(unittest.TestCase):
         self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
 
 
+def a_report(close, rev, checks, state="clean", **more):
+    """An evidence.py --json report of Day 01, checked at close on its spec and breaks file at rev."""
+    day = dict(spec=dict(path="specs/day-01-x.md", sha256="0" * 64, state=state, revision=rev), day="01",
+               close_sha=close, verify_base_sha=None, checks=checks,
+               breaks=dict(path="specs/breaks/day-01.json", sha256=None, state="missing", revision=None))
+    return dict(dict(schema=1, runner=dict(revision="r" * 40, dirty=False), generated="2026-10-29T10:00:00+00:00",
+                     ref="main", ref_sha=close, days=[day]), **more)
+
+
+def a_check(kind, status, label="C1.1", diagnostic=None):
+    return dict(id=f"day-01-x.md/{label}", kind=kind, criterion="C1.1", sha=None, status=status, label=label,
+                diagnostic=diagnostic)
+
+
+class EvidenceReportTest(unittest.TestCase):
+    """The committed evidence report: read, never replayed, and current only on main's inputs."""
+
+    def setUp(self):
+        self.repo = Repo().merge({"specs/day-01-x.md": "# Day 01\n"}).merge({"wordtally/a.py": "x = 1\n"})
+        self.addCleanup(self.repo.close)
+        self.close = self.repo.git("rev-parse", "HEAD").strip()
+        self.days = [dict(day=1, status="done", file="specs/day-01-x.md", prs=[dict(number=1, kind="close")]),
+                     dict(day=2, status="done", file="specs/day-02-y.md", prs=[]),
+                     dict(day=3, status="active", file="specs/day-03-z.md", prs=[])]
+        page = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, page, True)
+        self.addCleanup(setattr, sd, "PAGE", sd.PAGE)
+        sd.PAGE = page
+
+    def read(self, report):
+        if report is not None:
+            with open(os.path.join(sd.PAGE, "evidence-checks.json"), "w", encoding="utf-8") as f:
+                f.write(report if isinstance(report, str) else json.dumps(report))
+        return self.repo.inside(lambda _: sd.evidence_checks(self.days, self.repo.snaps))
+
+    def test_no_report_is_absent_not_a_pass(self):
+        self.assertEqual(self.read(None), dict(state="absent"))
+
+    def test_a_report_on_mains_inputs_is_current_and_counted_by_kind_and_status(self):
+        checks = [a_check("named_test", "passed"), a_check("named_test", "not_applicable"),
+                  a_check("break", "failed", "C1.2 broken: x", "reported 'y'"), a_check("runner", "error", "w", "no worktree")]
+        got = self.read(a_report(self.close, self.close, checks))
+        self.assertEqual(got["state"], "loaded")
+        one, two = got["days"]
+        self.assertEqual((one["state"], one["why"]), ("current", []))
+        self.assertEqual(one["counts"]["named_test"], dict(passed=1, failed=0, error=0, not_applicable=1))
+        self.assertEqual(one["counts"]["break"]["failed"], 1)
+        self.assertEqual([p["label"] for p in one["problems"]], ["C1.2 broken: x", "w"])
+        self.assertEqual(two, dict(day=2, state="not checked"))  # finished, left out; Day 3 is not finished
+
+    def test_a_report_checked_elsewhere_is_stale(self):
+        first = self.repo.snaps[0]["sha"]
+        self.assertIn("checked at close", self.read(a_report(first, self.close, []))["days"][0]["why"][0])
+        self.assertIn("was edited when checked", self.read(a_report(self.close, self.close, [], state="edited"))["days"][0]["why"][0])
+        self.repo.merge({"specs/day-01-x.md": "# Day 01, edited\n"})
+        got = self.read(a_report(self.close, self.close, []))["days"][0]
+        self.assertEqual(got["state"], "stale")
+        self.assertEqual(got["why"], [f"specs/day-01-x.md changed since {self.close[:7]}"])
+
+    def test_a_report_this_cannot_read_is_invalid_with_its_reason(self):
+        for report, why in (("{not json", "JSONDecodeError"), (dict(a_report(self.close, self.close, []), schema=2), "schema 2"),
+                            (a_report(self.close, self.close, [a_check("verify", "skipped")]), "status 'skipped'"),
+                            (dict(schema=1), "KeyError")):
+            got = self.read(report)
+            self.assertEqual(got["state"], "invalid", why)
+            self.assertIn(why, got["diagnostic"])
+
+
+@unittest.skipUnless(shutil.which("node"), "needs node")
+class EvidenceReportPageTest(unittest.TestCase):
+    """The page draws the report as spec-drift.py read it, and never a missing observation as a pass."""
+    ROW = dict(page_row(0, None, "origin", 40), code_churn=0)
+
+    def test_no_report_and_an_unreadable_one_say_so(self):
+        _, panels, _ = drawn([self.ROW])
+        self.assertIn("Not checked: no report.", panels["evidence-checks"])
+        _, panels, _ = drawn([self.ROW], evidence_checks=dict(state="invalid", diagnostic="ValueError: <b>"))
+        self.assertIn("Report unavailable: ValueError: &lt;b&gt;", panels["evidence-checks"])
+
+    def test_each_kind_is_a_share_of_what_ran_and_stale_and_unchecked_days_are_marked(self):
+        n = lambda p, f, e, na: dict(passed=p, failed=f, error=e, not_applicable=na)
+        ec = dict(state="loaded", generated="2026-10-29T10:00", ref="main", ref_sha="abcdef0123", runner=dict(revision="1234567890"),
+                  days=[dict(day=1, state="current", why=[], counts=dict(named_test=n(3, 1, 0, 2), verify=n(0, 0, 0, 1)),
+                             problems=[dict(kind="break", status="failed", label="<script>x", diagnostic=None)]),
+                        dict(day=2, state="stale", why=["checked at close aaaaaaa, main's is bbbbbbb"], counts={}, problems=[]),
+                        dict(day=3, state="not checked")])
+        error, panels, _ = drawn([self.ROW], evidence_checks=ec)
+        self.assertIsNone(error)
+        box = panels["evidence-checks"]
+        self.assertIn('<td class="r none">3/4 passed · 2 n/a</td>', box)
+        self.assertIn('<td class="r pre">– · 1 n/a</td>', box)  # nothing ran: no share
+        self.assertIn('<td class="r pre">none</td>', box)
+        self.assertIn("stale</span> checked at close aaaaaaa", box)
+        self.assertIn("not checked: the report leaves this day out", box)
+        self.assertIn("&lt;script&gt;x", box)
+        self.assertNotIn("<script>", box)
+
+    def test_the_report_changes_no_other_panel(self):
+        _, without, _ = drawn([self.ROW])
+        _, with_it, _ = drawn([self.ROW], evidence_checks=dict(state="invalid", diagnostic="x"))
+        self.assertEqual({k: v for k, v in without.items() if k != "evidence-checks"},
+                         {k: v for k, v in with_it.items() if k != "evidence-checks"})
+
+
 def a_day(n, ticked=1, total=1, kinds=(), titles=()):
     return dict(day=n, status="provisional", criteria=dict(ticked=ticked, total=total),
                 prs=[dict(kind=k, title=t) for k, t in zip(kinds, list(titles) + [""] * len(kinds))],

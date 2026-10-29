@@ -160,6 +160,7 @@ td.r { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 td.none { color: var(--code); font-weight: 600; }
 /* A day whose spec predates the evidence format: its counts were not asked for, so not scored. */
 td.pre { color: var(--muted); font-style: italic; }
+#evidence-checks .off { color: var(--muted); font-style: italic; }
 .pre-tag { font: 500 10.5px/1 var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
 tr:has(+ tr.found) td { border-bottom: 0; }
 .found td { padding-top: 0; white-space: normal; }

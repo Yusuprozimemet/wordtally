@@ -1151,6 +1151,70 @@ def deployment():
         return json.load(f)
 
 
+EVIDENCE_SCHEMA = 1  # scripts/evidence.py's SCHEMA
+EVIDENCE_STATUSES = ("passed", "failed", "error", "not_applicable")
+
+
+def blob_id(sha, path):
+    """The blob a commit holds at path, or None where it has none."""
+    r = subprocess.run(["git", "rev-parse", "--verify", "-q", f"{sha}:{path}"], capture_output=True, text=True)
+    return r.stdout.strip() or None
+
+
+def input_drift(record, head, path):
+    """Why an input the report read is not path as main has it now, or None if it is the same file.
+    Compared by blob, not by the report's hash: that hashes the working tree's bytes, CRLF on Windows."""
+    state, rev = record.get("state"), record.get("revision")
+    if state == "missing":
+        return None if blob_id(head, path) is None else f"{path} was missing when checked"
+    if state != "clean" or not rev:
+        return f"{path} was {state} when checked"
+    return None if blob_id(rev, record.get("path") or path) == blob_id(head, path) else f"{path} changed since {rev[:7]}"
+
+
+def evidence_checks(days, snaps):
+    """The committed report of scripts/evidence.py --json, read, never replayed: each finished day's
+    checks counted by kind and status, current if checked at main's close and on main's spec and
+    breaks file, stale if not. No report is "absent", one this cannot read "invalid": neither a pass."""
+    path = os.path.join(PAGE, "evidence-checks.json")
+    if not os.path.exists(path):
+        return dict(state="absent")
+    head, merged = snaps[-1]["sha"], {s["pr"]: s["sha"] for s in snaps if s["pr"]}
+    try:
+        with open(path, encoding="utf-8") as f:
+            report = json.load(f)
+        if report.get("schema") != EVIDENCE_SCHEMA:
+            raise ValueError(f"schema {report.get('schema')!r}, this page reads {EVIDENCE_SCHEMA}")
+        by_day = {}
+        for d in report["days"]:
+            for c in d["checks"]:
+                if c["status"] not in EVIDENCE_STATUSES:
+                    raise ValueError(f"{c['id']}: status {c['status']!r}")
+            by_day[day_of(d["spec"]["path"])] = d
+        out = []
+        for d in (d for d in days if d["status"] in FINISHED):
+            r = by_day.get(d["day"])
+            if r is None:
+                out.append(dict(day=d["day"], state="not checked"))
+                continue
+            close = max((p["number"] for p in d["prs"] if p["kind"] == "close"), default=None)
+            close = merged.get(close)
+            why = [] if close and (r.get("close_sha") or "").startswith(close) else [
+                f"checked at close {(r.get('close_sha') or 'none')[:7]}, main's is {close or 'none'}"]
+            why += [w for w in (input_drift(r.get("spec") or {}, head, d["file"]),
+                                input_drift(r.get("breaks") or {}, head, f"specs/breaks/day-{d['day']:02d}.json")) if w]
+            counts = {}
+            for c in r["checks"]:
+                counts.setdefault(c["kind"], dict.fromkeys(EVIDENCE_STATUSES, 0))[c["status"]] += 1
+            out.append(dict(day=d["day"], state="stale" if why else "current", why=why, counts=counts,
+                            problems=[{k: c.get(k) for k in ("kind", "status", "label", "diagnostic")}
+                                      for c in r["checks"] if c["status"] in ("failed", "error")]))
+        return dict(state="loaded", generated=report["generated"], ref=report["ref"], ref_sha=report["ref_sha"],
+                    runner=report["runner"], days=out)
+    except (OSError, ValueError, KeyError, TypeError, AttributeError) as e:
+        return dict(state="invalid", diagnostic=f"{type(e).__name__}: {e}")
+
+
 INFRA_TRIES = 5
 
 
@@ -1342,6 +1406,7 @@ def main():
                                verification=verification(prs, runs),
                                infra=infra(INFRA_WORKFLOW),
                                deployment=deployment(),
+                               evidence_checks=evidence_checks(days, snaps),
                                conclusion=conclusion(blobs.read(snaps[-1]["sha"], "docs/lab-notebook.md")),
                                meta=dict(caveats=CAVEATS + [note] * bool(note), provenance=provenance(),
                                          break_line_from_pr=BREAK_LINE_FROM_PR, project=project_name(),

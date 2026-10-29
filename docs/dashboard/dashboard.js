@@ -715,7 +715,7 @@ function drawEvidence() {
   // A day written before the evidence format was never asked to record these: its zero is "not measured".
   const cell = (n, of, pre) => pre ? `<td class="r pre">${n ? `${n}/${of}` : "not measured"}</td>`
     : `<td class="r${n ? "" : " none"}">${n}/${of}</td>`;
-  document.getElementById("evidence").innerHTML = `<thead><tr><th>Day</th><th class="r">Cite a PR</th><th class="r">Name a test</th><th class="r">Seen red</th><th class="r">Tests on main</th><th>Title</th></tr></thead><tbody>` +
+  document.getElementById("evidence").innerHTML = `<thead><tr><th>Day</th><th class="r">Cite a PR</th><th class="r">Name a test</th><th class="r">Seen red, recorded</th><th class="r">Tests on main</th><th>Title</th></tr></thead><tbody>` +
     days.map(d => {
       const ev = d.evidence.filter(c => c.ticked), states = ev.flatMap(c => Object.values(c.tests));
       // A retired test is a loss a later day chose, so only skippable and missing tests turn the cell orange.
@@ -748,6 +748,38 @@ function drawEvidence() {
     ? `<tbody><tr><td>None: no finished day's criteria or Verify name a grep that must print nothing.</td></tr></tbody>` : `<thead><tr><th>Day</th><th>Check</th><th>From</th><th>On main</th><th class="r">Files read</th><th>Since</th></tr></thead><tbody>` +
     removals.map(c => `<tr><td class="num">${dd(c.day)}</td><td class="t"><code>${esc(c.cmd)}</code></td><td class="num">${esc(c.base)}</td><td>${chip(c)}</td><td class="r num">${c.reads}</td>` +
       `<td class="num" title="${esc(R[c.from].title || "")}">${prLabel(R[c.from])}${c.from === c.since ? " · day end" : ""}</td></tr>${found(c)}`).join("") + "</tbody>";
+}
+
+// The report scripts/evidence.py wrote, as spec-drift.py read it. No report is "not checked", and a
+// day the report leaves out is too: neither is ever drawn as a pass.
+const CHECK_KINDS = [["named_test", "Named tests"], ["verify", "Verify"], ["break", "Breaks replayed"]];
+function drawEvidenceChecks() {
+  const ec = DATA.evidence_checks || { state: "absent" }, box = document.getElementById("evidence-checks");
+  if (ec.state === "absent") {
+    box.innerHTML = `<p class="off">Not checked: no report. <code>python scripts/evidence.py specs/day-*.md --json docs/dashboard/evidence-checks.json</code> writes one.</p>`;
+    return;
+  }
+  if (ec.state !== "loaded") {
+    box.innerHTML = `<p class="load-error">Report unavailable: ${esc(ec.diagnostic || ec.state)}</p>`;
+    return;
+  }
+  // passed / (passed + failed + error): with none run, no share.
+  const cell = n => {
+    if (!n) return `<td class="r pre">none</td>`;
+    const ran = n.passed + n.failed + n.error, na = n.not_applicable ? ` · ${n.not_applicable} n/a` : "";
+    return ran ? `<td class="r${n.passed < ran ? " none" : ""}">${n.passed}/${ran} passed${n.error ? `, ${n.error} error` : ""}${na}</td>`
+      : `<td class="r pre">–${na}</td>`;
+  };
+  const r = ec.runner || {};
+  box.innerHTML = `<p class="limit">Report of ${esc(String(ec.generated).replace("T", " "))} · ${esc(ec.ref)} at ${esc(String(ec.ref_sha || "none").slice(0, 7))} · runner ${esc(String(r.revision || "unknown").slice(0, 7))}${r.dirty ? " (edited)" : ""}</p>` +
+    `<div class="scroll-x"><table><thead><tr><th>Day</th><th>Report</th>${CHECK_KINDS.map(([, h]) => `<th class="r">${h}</th>`).join("")}</tr></thead><tbody>` +
+    ec.days.map(d => d.state === "not checked"
+      ? `<tr><td class="num">${dd(d.day)}</td><td class="pre" colspan="${CHECK_KINDS.length + 1}">not checked: the report leaves this day out</td></tr>`
+      : `<tr${d.state === "stale" ? ` class="off" title="${esc(d.why.join("; "))}"` : ""}><td class="num">${dd(d.day)}</td><td>${d.state === "stale" ? `<span class="pre-tag">stale</span> ${esc(d.why.join("; "))}` : "current"}</td>${CHECK_KINDS.map(([k]) => cell(d.counts[k])).join("")}</tr>`).join("") +
+    `</tbody></table></div>`;
+  const problems = ec.days.flatMap(d => (d.problems || []).map(p =>
+    `<li>Day ${dd(d.day)}: ${esc(p.status)} · ${esc(p.label)}${p.diagnostic ? ` → ${esc(p.diagnostic)}` : ""}</li>`));
+  if (problems.length) box.innerHTML += `<h3>Failed or could not run</h3><ul>${problems.join("")}</ul>`;
 }
 
 /* ---------- hand-offs ---------- */
@@ -960,7 +992,7 @@ function drawDeployment() {
 
 panel("today", drawNow); panel("work-bar", drawWork); panel("perday", drawPerDay); panel("breaks", drawVerification);
 panel("infra-head", drawInfra); panel("deployment-head", drawDeployment); panel("token-bars", drawTokens); panel("relabel", drawRelabel);
-panel("evidence-gaps", drawEvidence); panel("hand-offs", drawHandOffs); panel("read", drawConclusion);
+panel("evidence-gaps", drawEvidence); panel("evidence-checks", drawEvidenceChecks); panel("hand-offs", drawHandOffs); panel("read", drawConclusion);
 panel("findings", drawFindings); panel("tbl", drawTable); setSel(sel);
 }
 
