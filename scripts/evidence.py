@@ -321,6 +321,17 @@ def runner():
             "python": platform.python_version(), "platform": platform.platform()}
 
 
+def report_text(report):
+    """The report as JSON with one check per line, so a committed one diffs by check, as token-usage.json by row."""
+    one = lambda v: json.dumps(v, ensure_ascii=False, separators=(",", ":"))
+    days = []
+    for d in report["days"]:
+        head = "".join(f"{one(k)}:{one(v)}," for k, v in d.items() if k != "checks")
+        days.append(" {" + head + '"checks":[\n' + ",\n".join("  " + one(c) for c in d["checks"]) + "\n ]}")
+    fields = [f"{one(k)}:" + ("[\n" + ",\n".join(days) + "\n]" if k == "days" else one(v)) for k, v in report.items()]
+    return "{\n" + ",\n".join(fields) + "\n}\n"
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     p.add_argument("specs", nargs="+")
@@ -347,8 +358,7 @@ def main(argv=None):
                          for k in dict.fromkeys(c["kind"] for c in checks)}
     if a.json:
         with open(a.json, "w", encoding="utf-8", newline="\n") as f:
-            json.dump(report, f, indent=1, ensure_ascii=False)
-            f.write("\n")
+            f.write(report_text(report))
     failed = sum(c["status"] == "failed" for c in checks)
     errors = sum(c["status"] == "error" for c in checks)
     print(", ".join(f"{n} {w}" for n, w in ((failed, "failed"), (errors, "could not run")) if n)

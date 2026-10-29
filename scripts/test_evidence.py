@@ -195,6 +195,15 @@ class EvidenceTest(unittest.TestCase):
             self.assertEqual(line, "ok    " + check["label"])
         self.assertEqual(report["summary"]["break"], {"passed": 1, "failed": 0, "error": 0, "not_applicable": 0})
 
+    def test_the_report_writes_each_check_on_a_line_of_its_own(self):
+        self.report(spec())
+        with open(os.path.join(self.repo, "report.json"), encoding="utf-8") as f:
+            lines = f.read().splitlines()
+        report = json.loads("\n".join(lines))
+        for check in report["days"][0]["checks"]:
+            self.assertIn("  " + json.dumps(check, ensure_ascii=False, separators=(",", ":")),
+                          [l.rstrip(",") for l in lines])
+
     def test_the_report_records_the_commits_and_inputs_checked(self):
         close = self.git("rev-parse", "HEAD").strip()
         self.run_evidence(spec())
