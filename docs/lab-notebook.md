@@ -300,3 +300,20 @@ its line now says so.
 - *Tests:* three in `scripts/test_track_red.py`. On `main`'s script the end-to-end one fails by
   assertion (exit 0, not 1); the two parse ones error, as `unread` is new. Five breaks, one per
   rule, each failed by assertion.
+
+**`scripts/test_track_red.py` covers a test that runs nothing on the base, and a partial red.** A
+follow-up to #41 and #44 (C3); no day hit it. Two results `scripts/track-red.py` reports had no
+test: "ran no test on <base>", and a track where some named tests are red and others not. Each was
+reproduced on `main`'s script first, and `main` already handles both: no code changed.
+
+- *Zero tests:* a test module whose `setUpModule` skips where the feature is missing reports
+  "Ran 0 tests" and "OK (skipped=1)" on the base, exit 0; `track-red.py` fails it as "ran no
+  test". With that branch broken it still fails, as "does not see the change": the branch changes
+  the message, not the verdict.
+- *Partial:* one `new` criterion naming a red test and a green one, and two `new` criteria of
+  which one is red. Each exits 1, prints the `seen red:` line for the red test and a FAIL for the
+  other, and counts "1 of 2".
+- *Tests:* three, 15 to 18. They pass on `main`'s script, so each was seen red by a break of
+  `track-red.py` instead (a scratch copy of `break.py`, since `track-red.py` loads the original
+  through `seen-red.py`): zero tests counted as a run, the summary counting criteria not tests,
+  and a pass when any one test is red.

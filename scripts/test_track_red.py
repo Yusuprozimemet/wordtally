@@ -170,6 +170,31 @@ class TrackRedTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("does not pass on the head: FAILED (failures=", out)
 
+    def test_a_test_that_runs_no_test_on_the_base_fails(self):
+        # The module skips itself where triple is missing: "Ran 0 tests", "OK (skipped=1)" on the base.
+        self.write("tests/test_more.py", "import unittest\nimport app\n\ndef setUpModule():\n"
+                                         "    if not hasattr(app, 'triple'):\n        raise unittest.SkipTest('no triple')\n\n"
+                                         "class M(unittest.TestCase):\n    def test_triple(self):\n"
+                                         "        self.assertEqual(app.triple(1), 3)\n")
+        code, out = self.track_red(spec(test="`M.test_triple`"), fix="return x * 2\n\ndef triple(x):\n    return x * 3")
+        self.assertEqual(code, 1, out)
+        self.assertRegex(out, r"FAIL: C1\.1: tests\.test_more\.M\.test_triple ran no test on \w+: OK \(skipped=1\)")
+        self.assertIn("0 of 1 tests", out)
+
+    def test_one_red_test_of_two_one_criterion_names_fails_and_says_which(self):
+        code, out = self.track_red(spec(test="`T.test_double_a_string`, `T.test_double`"))
+        self.assertEqual(code, 1, out)
+        self.assertIn("seen red: tests.test_app.T.test_double_a_string (C1.1) on ", out)
+        self.assertRegex(out, r"FAIL: C1\.1: tests\.test_app\.T\.test_double reports OK on \w+")
+        self.assertIn("1 of 2 tests", out)
+
+    def test_one_red_criterion_of_two_new_ones_fails_and_says_which(self):
+        code, out = self.track_red(spec().replace("C1.2 **hold**", "C1.2 **new**"))
+        self.assertEqual(code, 1, out)
+        self.assertIn("seen red: tests.test_app.T.test_double_a_string (C1.1) on ", out)
+        self.assertRegex(out, r"FAIL: C1\.2: tests\.test_app\.T\.test_double reports OK on \w+")
+        self.assertIn("1 of 2 tests", out)
+
 
 if __name__ == "__main__":
     unittest.main()
