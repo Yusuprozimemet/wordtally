@@ -192,3 +192,51 @@ None is owned by a day. Before more agent autonomy, 1 to 3 come first.
   maintainer's corrections and the defects that escape.
 - Give the implementer the spec alone, not a dictated brief. Count rewrites and escapes.
 - Run the spec-auditor from a different model family against specs with planted faults.
+
+## E1: a decision model as an evidence checker
+
+Written 2026-10-29 (`main` at 16e3852), step 6 of the
+[workflow improvement plan](workflow-improvement-plan.md#order-of-work). E1 asked whether Jev,
+TypeSafe's decision model, can tell if a criterion's `broken:` lines show that its test catches
+what the criterion promised: the judgment half of open item 6. The set, labels and bar were
+committed before any call (#30); the runner (#31) asked each bundle of Jev, of a fresh Opus agent
+per bundle, and of a floor that always answers `supports`; the records and scorer are #32.
+
+**Verdict: no-go.** E1 fails bar 2. As the plan says, the work stops here: no Jev dashboard
+section, no shadow days, no adoption (its steps 7 to 11).
+
+| Measure, on 66 scored bundles (3 ambiguous apart) | Jev | Opus agent | Floor | Bar for Jev |
+| --- | --- | --- | --- | --- |
+| Hand-written `insufficient` and `contradicts` flagged | 17 of 17 | 17 of 17 | 0 of 17 | 1, at least half: met |
+| Real `supports` flagged (false alarms) | 12 of 12 | 12 of 12 | 0 of 12 | 2, at most 1 in 10: **not met** |
+| Against the Opus agent | same flags, same false alarms | | | 3: met |
+| Per bundle | $0.000038, 0.34 s | about 40k tokens, 6–15 s; dollars not recorded | | 4: met on tokens, see below |
+| Highest probability stated | 0.89 | 0.90, once | 1.0 | |
+| Answer is the label | 31 of 66 | 62 of 66 | 12 of 66 | |
+| Brier score | 0.232 | 0.096 | 0.818 | |
+
+Why, from the records:
+
+- **Jev's flags carry no information at the fixed threshold.** Its highest stated probability on
+  any bundle is 0.89, so every answer it gave is a flag. Bars 1 and 3 are met by flagging all 66
+  bundles, which an answerer that always says "flag" would match.
+- **Its labels fail on their own.** It answered `contradicts` 39 times on a set with 5 such
+  cases, among them 9 of the 12 hand-written `insufficient` cases and 13 of the 32 swapped pairs.
+- **The false alarms are not only Jev's.** The Opus agent also flags all 12 real `supports`, at
+  0.55 to 0.85, and answers `insufficient` on 4 of them (R02, R04, R10, R16). With this question,
+  no answerer states 0.9 that the breaks cover a criterion. The plan's "the question, not the
+  model" note is for both failing bars 1 and 2; here both pass 1 and fail 2, so the record is
+  that the question and threshold share bar 2's failure, and Jev's labels (31 of 66, against
+  62) fail apart from it. The threshold is not retuned after the answers (ground rules).
+- **Bar 4 rests on tokens, not dollars:** the Opus agent's cost was not recorded per bundle
+  (#32's departure). It does not change the verdict.
+- With 12 real `supports` among 66 bundles, the result is directional, not proof.
+
+What it leaves:
+
+- Open item 6's judgment half stays open. Its mechanical half stands: `scripts/evidence.py` and
+  `specs/breaks/` (#24, #25, #26).
+- The 4 real cases the Opus agent called `insufficient` were not relabelled. Checking them would
+  be a recorded correction under the ground rules, and it cannot change bar 2.
+- Trying again would be a new experiment, with a new question or threshold committed before its
+  first call. That is the maintainer's decision; nothing here starts it.
