@@ -263,3 +263,15 @@ in their `Test:` field, alone, on the commit the branch started from and on the 
   was missing. It does not show the track's author ran seen-red.py; it runs it again.
 - *Synthetic, each failing with one line:* no `Test:`, a name that matches no test, a test that
   passes on the base, a test that errors there.
+
+**The end-of-phase auditors run after the phase's last closing PR merges, on fresh `main`.** The
+maintainer's decision; no finding is cited for it. After "merged" on that PR: the dashboard
+refresh (step 5), then the phase-end plan-auditor (at Day 5, the close of Phase 1, the three
+end-of-phase auditors too), a report, and a stop. They never run inside the closing PR. Each
+still runs from a fresh context and only reports.
+
+- *Where it is stated:* `CLAUDE.md` step 6, the auditors table and the paragraph under it;
+  `docs/workflow.md`'s trigger table and diagram; the description and "When you run" lines of
+  the plan-auditor and the three end-of-phase agents.
+- *What it matches:* Day 5's audits were recorded in #21, which merged after its closing PR,
+  #19. The written order now says what was done.

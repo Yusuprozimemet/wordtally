@@ -45,8 +45,9 @@ maintainer, and nothing starts after a phase ends until they say so.
    [public one](https://yusuprozimemet.github.io/wordtally/) by itself (`.github/workflows/dashboard.yml`). On fresh
    `main`, run `python scripts/spec-drift.py` and report the next step it prints. The page on
    GitHub Pages is the only dashboard; nothing else is republished.
-6. **When a phase's last day closes,** run the plan-auditor on the phase that just ended and on
-   the next, report, and stop.
+6. **When a phase's last closing PR has merged,** after step 5, on fresh `main`: run the
+   plan-auditor on the phase that just ended and on the next (at Day 5, the close of Phase 1,
+   the three end-of-phase auditors too), report, and stop. They never run inside the closing PR.
 
 Tracks may run in a different order from the spec's table when one depends on another; say so in
 the PR.
@@ -77,16 +78,16 @@ own specs: in this repository that session has read past its own errors more tha
 |---|---|---|
 | first day of a phase, before anything else | plan-auditor | Do this phase's specs still deliver what `plan.md` wants, on today's code? |
 | every day, before the spec-change PR | spec-auditor | Is every claim and check in this day's spec true, and can each check fail? |
-| a phase's last day has closed | plan-auditor | What did the phase change that the next one must know? |
+| a phase's last closing PR has merged, on fresh `main` | plan-auditor | What did the phase change that the next one must know? |
 | a stopping point `plan.md` names, before going on | plan-auditor, on the whole plan | Is `plan.md` still the right plan, and what has piled up that no day owns? |
-| Day 5, the close of Phase 1 | security-ops-auditor, agentic-engineering-auditor, architecture-auditor | Can the workflow take more autonomy safely; what does it show about agents; do its gates hold? |
+| Day 5's closing PR has merged (the close of Phase 1), on fresh `main` | security-ops-auditor, agentic-engineering-auditor, architecture-auditor | Can the workflow take more autonomy safely; what does it show about agents; do its gates hold? |
 | every close, after the Notes are written | defect-rater, on `relabel.py`'s blind file | Does a reader who did not write the day tag its defects the same way? |
 | any time, by hand | either | "use the plan-auditor on Phase 3" |
 
 Both check hand-offs: what earlier days' Notes and test comments defer to a later day. Nothing
 else carries them forward, and that is where most gaps have come from.
 
-The three end-of-phase auditors run once, on Opus, at Day 5, the close of Phase 1, beside the plan-auditor on the last phase and on the whole plan. Each runs from a fresh context and reads none of
+The three end-of-phase auditors run once, on Opus, after Day 5's closing PR has merged (the close of Phase 1), on fresh `main`, beside the plan-auditor on the last phase and on the whole plan. Each runs from a fresh context and reads none of
 the others' reports: their disagreement is part of the result.
 
 Their findings are advice to the maintainer. What becomes a PR is the maintainer's call.

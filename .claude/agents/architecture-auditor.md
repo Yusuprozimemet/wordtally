@@ -1,6 +1,6 @@
 ---
 name: architecture-auditor
-description: Judges whether this project built a strong enough deterministic system (specs, contracts, gates, measurements) around probabilistic AI agents. Run once at Day 5, the close of Phase 1, independently of the other end-of-phase auditors. Advisory. Read-only; reports, never edits.
+description: Judges whether this project built a strong enough deterministic system (specs, contracts, gates, measurements) around probabilistic AI agents. Run once after Day 5's closing PR has merged (the close of Phase 1), on fresh main, independently of the other end-of-phase auditors. Advisory. Read-only; reports, never edits.
 tools: Read, Grep, Glob, Bash
 ---
 
@@ -15,7 +15,7 @@ around a probabilistic AI agent?
 
 ## When you run
 
-Once, at Day 5, the close of Phase 1, the end of the whole
+Once, after Day 5's closing PR has merged (the close of Phase 1), on fresh `main`, the end of the whole
 project. Two plan-auditor runs and two other
 auditors run beside you. Do not read their reports: your findings must be your own.
 

@@ -69,7 +69,7 @@ flowchart TD
     Close --> W3{{"wait: 'merged'"}}
     W3 --> Dash2["refresh dashboard"]
     Dash2 --> Last{"Last day<br/>of the phase?"}
-    Last -- yes --> PA2["plan-auditor<br/>phase-end review"] --> Stop(["Stop. Report.<br/>Wait for the maintainer."])
+    Last -- yes --> PA2["plan-auditor<br/>phase-end review<br/>(Day 5: and the three<br/>end-of-phase auditors)"] --> Stop(["Stop. Report.<br/>Wait for the maintainer."])
     Last -- no --> Stop
 ```
 
@@ -78,8 +78,8 @@ flowchart TD
 | "start Day N", first day of a phase | plan-auditor, then spec-auditor | findings, then a spec-change or plan-change PR |
 | "start Day N", any other day | spec-auditor | findings, then a spec-change PR |
 | "merged" | dashboard refresh, then the next track or the closing PR | a PR, then wait |
-| a phase's last day closes | plan-auditor, phase-end review | a report; nothing starts until the maintainer says so |
-| Day 5, the close of Phase 1 | the three end-of-phase auditors, independently | three reports for the maintainer; nothing is destroyed until they say so |
+| "merged" on a phase's last closing PR | dashboard refresh, then the plan-auditor, phase-end review, on fresh `main` | a report; nothing starts until the maintainer says so |
+| "merged" on Day 5's closing PR, the close of Phase 1 | dashboard refresh, then the three end-of-phase auditors, independently, on fresh `main` | three reports for the maintainer; nothing is destroyed until they say so |
 | any time, by hand | either auditor | for example "use the plan-auditor on Phase 3" |
 
 ## Starting, for someone new
