@@ -92,9 +92,12 @@ the others' reports: their disagreement is part of the result.
 
 Their findings are advice to the maintainer. What becomes a PR is the maintainer's call.
 
-"Read-only" is enforced, not only stated: each auditor's frontmatter runs `scripts/auditor-guard.py`,
-which blocks a git or `gh` command that writes and, at the auditor's stop, sends it back if the
-repository changed. An edit to `.claude/agents/` takes effect in the next session, not this one.
+"Read-only" is enforced, not only stated: `.claude/settings.json` runs `scripts/auditor-guard.py`
+on every Bash command and every subagent's stop, and for the five auditors with Bash it blocks a
+git or `gh` command that writes and, at the auditor's stop, sends it back if the repository
+changed; the main session and other agents pass. The hooks sit in the project settings, not in
+the agents' frontmatter: the VS Code extension's Claude Code (2.1.312) ignores frontmatter hooks.
+An edit to `.claude/` takes effect in the next session, not this one.
 
 ## The implementer
 

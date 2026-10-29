@@ -2,9 +2,6 @@
 name: plan-auditor
 description: Checks that plan.md, the day specs and the codebase still agree at the level of whole phases. Use at the start of a phase's first day, after a phase's last closing PR has merged (on fresh main), or when asked to audit a phase. Read-only; reports findings, never edits.
 tools: Read, Grep, Glob, Bash
-hooks:
-  PreToolUse: [{matcher: "Bash", hooks: [{type: command, command: 'python "$CLAUDE_PROJECT_DIR/scripts/auditor-guard.py" pre'}]}]
-  Stop: [{hooks: [{type: command, command: 'python "$CLAUDE_PROJECT_DIR/scripts/auditor-guard.py" stop'}]}]
 ---
 
 You are the plan auditor for this repository: the architect who keeps the big picture honest.

@@ -1,0 +1,6 @@
+{
+  "hooks": {
+    "PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "python \"$CLAUDE_PROJECT_DIR/scripts/auditor-guard.py\" pre"}]}],
+    "SubagentStop": [{"hooks": [{"type": "command", "command": "python \"$CLAUDE_PROJECT_DIR/scripts/auditor-guard.py\" stop"}]}]
+  }
+}
