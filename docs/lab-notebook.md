@@ -166,35 +166,55 @@ it back at 36.20°, inside 35.63–51.42°; Day 1–5 values do not change.
 
 None is owned by a day. Before more agent autonomy, 1 to 3 come first.
 
+*Status at the wrap-up, 2026-10-29 (`main` at 2e3a457):* 3 closed (4, 5, 10), 9 open. Each item
+ends with its line. The open ones need the maintainer's account or settings (1, 2, 7), a decision
+no PR has asked for (3, 8, 9, 11, 12), or a new experiment (6).
+
 1. **Agent credentials.** Give agents a non-admin identity (a fine-grained token or GitHub App,
    no `workflow` scope), set `enforce_admins:true`, and require one review from someone who is not
    the author. Today all 20 PRs were authored and merged by the same account, with 0 reviews.
+   **Open:** `main`'s protection still has `enforce_admins:false` and no required review; the
+   token is the maintainer's to change, not a PR's.
 2. **Required checks accept any source.** Five of the six required checks have `app_id:null`:
    any `repo` token can post a passing status by name. Pin each to GitHub Actions.
+   **Open:** the same five still read `app_id:null`; branch protection is a repository setting.
 3. **The control plane is not frozen.** A PR can edit `.github/workflows/` and `scripts/`, and
    `pull_request` runs the PR's own copies. Freeze them or add CODEOWNERS with required review.
+   **Open:** the frozen set is still `tests/contract/` alone, and there is no CODEOWNERS. A
+   required review needs a second reviewer, which item 1 has not given.
 4. **A rename empties the frozen set.** Moving `tests/contract/test_word_rule.py` out of
    `tests/contract/` unchanged passes `scripts/invariants.py` (an `R100` rename is allowed); the
    suite drops from 23 tests to 18. Fail renames out of a frozen pattern; fail a drop in test count.
+   **Closed in #29.**
 5. **The contract tests do not pin the plan's rule.** Changing the word pattern to `[\w']+` passes
    all five contract cases, which are ASCII only. Add non-ASCII and underscore cases.
+   **Closed in #27.**
 6. **Nothing checks the evidence.** No CI step runs a spec's Verify block, re-runs a `broken:`
    line, or checks a ticked criterion's test exists. "Criteria first broken at the close" returns
    nothing even for Day 5, which had such a case.
+   **Open, half closed:** the mechanical half is closed in #24, #25 and #26, and on the dashboard
+   in #38 to #40. The judgment half (do the breaks cover what the criterion promised?) stays open:
+   E1 was a no-go (#33), and a retry would be a new experiment.
 7. **The local guard has holes.** It sees only shell commands: Edit and Write on
    `~/.claude/settings.json` and the guard itself are not denied, `-XDELETE` and
    `--method=DELETE` pass its DELETE rule, and `gh pr merge` and `git push origin main` are not
    blocked.
+   **Open:** the local guard is user-level, outside this repository. #46 and #47 added a
+   separate guard for the five auditors (C4); it does not cover the main session.
 8. **Supply chain.** Actions are pinned by tag, not commit SHA, and the Pages job installs
    `numpy` unpinned, with `id-token: write`.
+   **Open:** the workflows still pin by tag (`actions/checkout@v4`) and install `numpy` unpinned.
 9. **Untrusted text.** The repository is public, so issues and PR text reach the agent, which
    also writes the memory loaded into later sessions. No rule treats that text as data.
+   **Open:** `CLAUDE.md` still has no such rule.
 10. **Carry the "seen red first" step** into the implementer brief or `scripts/break.py`, not a Note.
-    Done in CI: "Track tests seen red" (Workflow changes, below).
+    Done in CI: "Track tests seen red" (Workflow changes, below). **Closed in #28 and #41**,
+    with #44 and #45 as follow-ups.
 11. **Kit leftovers in CLAUDE.md:** "start Day 12", jobmatch's token figures, Maven. They are the
-    kit's lessons, not this repository's.
+    kit's lessons, not this repository's. **Open:** all three are still in `CLAUDE.md`.
 12. **The Done when is shell-dependent.** PowerShell's `cat` adds a CRLF (28 characters, not 27).
-    Read it in a POSIX shell.
+    Read it in a POSIX shell. **Open:** `plan.md`'s Done when still pipes through `cat`, with
+    no shell named.
 
 ### Next experiments the audits proposed
 
@@ -345,3 +365,23 @@ branch, a ref, the stash or `git status` changed since its first command.
   `claude -p` on both versions: the auditor's fetch blocked, the main session's not. The
   frontmatter test became three settings tests (eleven in all); five breaks, each failed by
   assertion.
+
+## Closing
+
+Written 2026-10-29 (`main` at 2e3a457). The project is paused with nothing queued.
+
+The product was the small part: five days and 106 lines of product code, with the plan's Done
+when holding at "Ran 23 tests", OK. The workflow test was the work. What it found:
+
+- **Rules held where they became scripts or CI.** Seen-red was skipped twice (#15, #18) while it
+  was a Note; CI now runs it on every track (#41). Break manifests reproduce 31 of 33 breaks (#25).
+- **Checks that read text need checking themselves.** The gap counted `specs/` as code until
+  #35. The C4 guard was "verified live" on one Claude Code version and ignored by the other
+  until #47.
+- **A model judging evidence did not pay here.** E1 was a no-go: Jev, and an Opus agent too,
+  flagged all 12 real `supports` (#33).
+- **The access controls are the gap.** Of the twelve open items, 3 are closed. The 9 left open
+  include the three that come before more autonomy: credentials, check sources, and a frozen
+  control plane.
+
+Work resumes only under a new plan. It starts from the open items above.
