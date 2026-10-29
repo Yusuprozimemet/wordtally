@@ -317,3 +317,23 @@ reproduced on `main`'s script first, and `main` already handles both: no code ch
   `track-red.py` instead (a scratch copy of `break.py`, since `track-red.py` loads the original
   through `seen-red.py`): zero tests counted as a run, the summary counting criteria not tests,
   and a pass when any one test is red.
+
+**The auditors' "read-only" is enforced by a hook (C4).** The maintainer's choice of three: a hook
+that blocks writing commands, an allowlist (too narrow for the spec-auditor, which runs each spec's
+Verify block), or a throwaway worktree (refs and `gh` stay open). Five briefs said "Read-only" and
+had Bash; one auditor had run `git checkout main` in a replay clone. Each of the five now runs
+`scripts/auditor-guard.py` from its frontmatter: `pre` blocks a git command that changes a
+repository and a `gh` command that is not a read; `stop` sends the auditor back if HEAD, the
+branch, a ref, the stash or `git status` changed since its first command.
+
+- *Reproduced first:* a spec-auditor, as a subagent, ran `git checkout -b repro-c4` and wrote over
+  `README.md` in a scratch clone; nothing stopped either. The user-level `guard.py` let `git
+  checkout`, `gh pr comment` and `gh api -X POST` through.
+- *After, in a fresh session:* the same checkout was blocked with "auditor-guard: blocked, git
+  checkout changes a repository", and the snapshot the first command wrote was gone at the stop.
+  In the session that edited the agents, nothing fired: an agent file is read when a session
+  starts.
+- *Not blocked, only found:* a write by a program (`python -c`, a redirect), since the hook reads
+  the command; the stop check finds it in this repository, not in another clone.
+- *Tests:* nine in `scripts/test_auditor_guard.py`, one of which counts the five wired auditors.
+  Fourteen breaks, one per rule, each failed by assertion.
