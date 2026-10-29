@@ -1,6 +1,6 @@
 name: PR checks
 
-# Five gates on every pull request:
+# Six gates on every pull request:
 #
 # 1. The description uses the template. GitHub only auto-fills the template in
 #    the web "compose" form and in `gh pr create` with no --body. A pull request
@@ -27,6 +27,9 @@ name: PR checks
 #    reads a day's progress from branch names and Jira from the keys; in the project the kit was copied from, three PRs that
 #    disagreed showed a wrong state after they merged (a `track-b` branch for track B1, one Jira key against another,
 #    a `claude/...` branch).
+#
+# 6. A track's new tests are seen red (scripts/track-red.py): each test its spec's `new` criteria
+#    name fails by assertion where the branch started and passes on it. #15 and #18 lacked the record.
 #
 # Recovery is automatic for the first two and the fifth's title and description: editing the description fires the `edited`
 # event and re-runs these checks. No new commit needed.
@@ -176,3 +179,23 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: python scripts/pr-names.py "$BASE_SHA" "$HEAD_SHA"
+
+  seen-red:
+    name: Track tests seen red
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}  # the branch itself, not the merge commit
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python scripts/test_track_red.py
+      - name: Run each new criterion's test on the base and the head
+        # The base is where the branch started, as the size check's three-dot diff counts from.
+        env:
+          PR_BRANCH: ${{ github.head_ref }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: python scripts/track-red.py --branch "$PR_BRANCH" --base "$(git merge-base "$BASE_SHA" "$HEAD_SHA")"

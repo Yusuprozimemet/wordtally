@@ -190,6 +190,7 @@ None is owned by a day. Before more agent autonomy, 1 to 3 come first.
 9. **Untrusted text.** The repository is public, so issues and PR text reach the agent, which
    also writes the memory loaded into later sessions. No rule treats that text as data.
 10. **Carry the "seen red first" step** into the implementer brief or `scripts/break.py`, not a Note.
+    Done in CI: "Track tests seen red" (Workflow changes, below).
 11. **Kit leftovers in CLAUDE.md:** "start Day 12", jobmatch's token figures, Maven. They are the
     kit's lessons, not this repository's.
 12. **The Done when is shell-dependent.** PowerShell's `cat` adds a CRLF (28 characters, not 27).
@@ -249,3 +250,16 @@ What it leaves:
   be a recorded correction under the ground rules, and it cannot change bar 2.
 - Trying again would be a new experiment, with a new question or threshold committed before its
   first call. That is the maintainer's decision; nothing here starts it.
+
+## Workflow changes
+
+**CI runs seen-red on each track's new tests ("Track tests seen red").** Open item 10: the record
+was missing from #15 and #18. `scripts/track-red.py` runs each test a track's `new` criteria name
+in their `Test:` field, alone, on the commit the branch started from and on the branch: "FAILED
+(failures=…)" there, not `errors=`, and "OK" here. Other branches, and all-`hold` tracks, pass.
+
+- *Replayed at their real base and head:* #4, #8, #12, #15, #18 pass with 7, 3, 3, 2, 3 tests,
+  1 to 2 s each; #27 is not applicable. The tests behind #15 and #18 were sound; only the record
+  was missing. It does not show the track's author ran seen-red.py; it runs it again.
+- *Synthetic, each failing with one line:* no `Test:`, a name that matches no test, a test that
+  passes on the base, a test that errors there.

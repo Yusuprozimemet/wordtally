@@ -42,6 +42,24 @@ def changed_tests(base):
     return sorted(set(tracked + untracked))
 
 
+def on_base(base, commands, files):
+    """Run each command, in order, in one scratch worktree of base with files copied in from the
+    working tree; their results. Run from the repository root. scripts/track-red.py calls it too."""
+    scratch = tempfile.mkdtemp()
+    tree = os.path.join(scratch, "base")
+    try:
+        git("worktree", "add", "--detach", tree, base)
+        for path in files:
+            os.makedirs(os.path.dirname(os.path.join(tree, path)), exist_ok=True)
+            shutil.copyfile(path, os.path.join(tree, path))
+        env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
+        return [subprocess.run(break_.argv_for(command, tree), cwd=tree, env=env, capture_output=True,
+                               text=True, encoding="utf-8", errors="replace") for command in commands]
+    finally:
+        subprocess.run(["git", "worktree", "remove", "--force", tree], capture_output=True)
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
 def refuse(message):
     print(f"seen-red.py: {message}", file=sys.stderr)
     return 2
@@ -62,22 +80,10 @@ def main(args=None):
         return refuse(f"cannot compare with {a.base}: {e.stderr.strip()}")
     if not files:
         return refuse(f"no file under {TESTS}/ differs from {a.base}: there is no new test to see red")
-    scratch = tempfile.mkdtemp()
-    tree = os.path.join(scratch, "base")
     try:
-        git("worktree", "add", "--detach", tree, a.base)
-        for path in files:
-            os.makedirs(os.path.dirname(os.path.join(tree, path)), exist_ok=True)
-            shutil.copyfile(path, os.path.join(tree, path))
-        env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
-        try:
-            run = subprocess.run(break_.argv_for(a.command, tree), cwd=tree, env=env, capture_output=True,
-                                 text=True, encoding="utf-8", errors="replace")
-        except FileNotFoundError as e:
-            return refuse(f"the command did not start: {e}")
-    finally:
-        subprocess.run(["git", "worktree", "remove", "--force", tree], capture_output=True)
-        shutil.rmtree(scratch, ignore_errors=True)
+        [run] = on_base(a.base, [a.command], files)
+    except FileNotFoundError as e:
+        return refuse(f"the command did not start: {e}")
     output = run.stdout + run.stderr
     command = " ".join(a.command)
     if run.returncode == 0:
