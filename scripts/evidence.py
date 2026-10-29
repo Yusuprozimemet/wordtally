@@ -25,12 +25,24 @@ an argument list run from that root, `bash` meaning Git's bash on Windows. Two k
 and "at": a commit to run the break at instead of the close, when the close no longer has what the
 break edits.
 
+Missing evidence is a check that fails, not one that is skipped: a ticked criterion that names no
+test and no command, a hold criterion with no `broken:` line, a spec with no Verify block or no
+ticked criterion. A criterion checked by a command instead of a named test, and a `broken: none →
+<why>`, are recorded as not applicable, with the reason.
+
 Item 6 of the lab notebook's open items: no step checked the evidence a close ticks a box on. It
-prints one line per check and exits 1 if any failed. It changes no file outside the worktree.
+prints one line per check and exits 1 if any failed or could not run. With --json PATH it also
+writes the same checks as a report (docs/spec-drift-improvement.md, Step 2): each with an id, a
+kind, its criterion and the commit it ran at, and a status, passed, failed, error (the checker
+could not run it) or not_applicable; and what was checked, from which inputs, by which runner. It
+changes no file outside the worktree but that report.
 """
 import argparse
+import datetime
+import hashlib
 import json
 import os
+import platform
 import re
 import shutil
 import subprocess
@@ -47,6 +59,10 @@ BROKEN = re.compile(r"^\s*broken: (.+) → (.*)$", re.S)
 PR_SUFFIX = re.compile(r"\s+\(#\d+\)$")
 TEMP_NAME = re.compile(r"tmp[0-9a-z_]{8}")
 COMMENT = re.compile(r"^(.*?)\s{2,}#\s*(.*)$")
+# A criterion checked by a command it quotes, not by a named test: Days 1-5's hold criteria.
+COMMAND = re.compile(r"`((?:git|python|diff|grep|bash) [^`]+)`")
+SCHEMA = 1
+MARK = {"passed": "ok  ", "failed": "FAIL", "error": "ERR ", "not_applicable": "n/a "}
 
 
 def git(*args, check=True):
@@ -161,10 +177,16 @@ PASSED = "The check passed with the break in"
 
 
 def run_break(entry, worktree, env):
-    """What break.py reported for the recorded break, or why it did not."""
+    """("reported", what break.py reported for the recorded break), or ("failed", why it did not):
+    the break no longer applies, or the check cannot see it; or ("error", why) when the break could
+    not be run at all."""
     if "at" in entry:
         other = tempfile.mkdtemp(prefix="evidence-")
-        git("worktree", "add", "--detach", other, entry["at"])
+        try:
+            git("worktree", "add", "--detach", other, entry["at"])
+        except subprocess.CalledProcessError as e:
+            shutil.rmtree(other, ignore_errors=True)
+            return "error", f"no worktree at {entry['at']}: {e.stderr.strip()}"
         try:
             return run_break({k: v for k, v in entry.items() if k != "at"}, other, env)
         finally:
@@ -179,34 +201,72 @@ def run_break(entry, worktree, env):
     lines = (run.stdout + run.stderr).strip().splitlines()
     if entry.get("passes"):
         if run.returncode == 0:
-            return None, "failed with the break in: this near miss should pass"
+            return "failed", "failed with the break in: this near miss should pass"
         if lines and lines[0].startswith(PASSED):
-            return lines[-1].strip()[len("last line: "):], None
+            return "reported", lines[-1].strip()[len("last line: "):]
+    if run.returncode == 2 and not (lines and "--find occurs" in lines[0]):
+        return "error", lines[0] if lines else "break.py exited 2"  # it refused to run the check
     if run.returncode != 0:
-        return None, lines[0] if lines else f"break.py exited {run.returncode}"
-    return lines[-1][len(f"broken: {entry['what']} → "):], None
+        return "failed", lines[0] if lines else f"break.py exited {run.returncode}"
+    return "reported", lines[-1][len(f"broken: {entry['what']} → "):]
+
+
+def input_file(path):
+    """A spec or breaks file as this run read it: its hash, and whether it is the file at HEAD
+    ("clean", with that revision), "edited", "untracked" or "missing"."""
+    record = {"path": path.replace(os.sep, "/"), "sha256": None, "state": "missing", "revision": None}
+    if os.path.isfile(path):
+        with open(path, "rb") as f:
+            record["sha256"] = hashlib.sha256(f.read()).hexdigest()
+        if not git("ls-files", "--", path, check=False).strip():
+            record["state"] = "untracked"
+        elif git("status", "--porcelain", "--", path, check=False).strip():
+            record["state"] = "edited"
+        else:
+            record.update(state="clean", revision=git("rev-parse", "HEAD").strip())
+    return record
 
 
 def check_spec(path, ref):
-    """[(ok, text)] for one spec."""
+    """One spec's record: what it was checked from and at, and its checks."""
     name = os.path.basename(path)
+    record = {"spec": input_file(path), "day": None, "close_sha": None, "verify_base_sha": None,
+              "breaks": None, "checks": []}
+
+    def add(key, kind, status, label, diagnostic=None, criterion=None, sha=None):
+        record["checks"].append({"id": f"{name}/{key}", "kind": kind, "criterion": criterion, "sha": sha,
+                                 "status": status, "label": label, "diagnostic": diagnostic})
+
     day = re.match(r"day-(\d{2})-", name)
-    if not day:
-        return [(False, f"{name}: not a day spec")]
+    if not day or not os.path.isfile(path):
+        add("close", "close", "failed", name, "no such file" if day else "not a day spec")
+        return record
+    record["day"] = day.group(1)
     with open(path, encoding="utf-8") as f:
         text = f.read()
-    commit = close_commit(day.group(1), ref)
+    commit = record["close_sha"] = close_commit(day.group(1), ref)
+    breaks_file = os.path.join(os.path.dirname(path), "breaks", f"day-{day.group(1)}.json")
+    record["breaks"] = input_file(breaks_file)
     if not commit:
-        return [(False, f"{name}: no merged day-{day.group(1)}/close-the-day on {ref}")]
-    results = [(True, f"{name}: close merged in {commit[:7]}")]
+        add("close", "close", "failed", name, f"no merged day-{day.group(1)}/close-the-day on {ref}")
+        return record
+    add("close", "close", "passed", f"{name}: close merged in {commit[:7]}", sha=commit)
     ticked = criteria(text)
+    if not ticked:
+        add("criteria", "close", "failed", name, "no ticked criterion: nothing was checked")
 
     for cid, lines in ticked.items():
-        for cls, test in dict.fromkeys(TEST.findall("\n".join(lines))):
+        body = "\n".join(lines)
+        tests = dict.fromkeys(TEST.findall(body))
+        for cls, test in tests:
             ok = test_exists(commit, cls, test)
-            results.append((ok, f"{cid} {cls}.{test} {'is' if ok else 'is not'} defined at {commit[:7]}"))
+            add(f"{cid}/test/{cls}.{test}", "named_test", "passed" if ok else "failed", f"{cid} {cls}.{test}",
+                None if ok else f"not defined at {commit[:7]}", cid, commit)
+        if not tests:
+            command = COMMAND.search(body)
+            add(f"{cid}/test", "named_test", "not_applicable" if command else "failed", f"{cid} named test",
+                f"none: checked by `{command.group(1)}`" if command else "none, and no command named", cid)
 
-    breaks_file = os.path.join(os.path.dirname(path), "breaks", f"day-{day.group(1)}.json")
     recorded = {}
     if os.path.exists(breaks_file):
         with open(breaks_file, encoding="utf-8") as f:
@@ -214,41 +274,86 @@ def check_spec(path, ref):
 
     env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
     worktree = tempfile.mkdtemp(prefix="evidence-")
-    git("worktree", "add", "--detach", worktree, commit)
     try:
-        base = git("rev-parse", f"{commit}^1").strip()
-        for line in verify_lines(text):
+        git("worktree", "add", "--detach", worktree, commit)
+    except subprocess.CalledProcessError as e:
+        shutil.rmtree(worktree, ignore_errors=True)
+        add("worktree", "runner", "error", name, f"no worktree at {commit[:7]}: {e.stderr.strip()}", sha=commit)
+        return record
+    try:
+        base = record["verify_base_sha"] = git("rev-parse", f"{commit}^1").strip()
+        commands = verify_lines(text)
+        if not commands:
+            add("verify", "verify", "failed", "Verify", "no Verify block, or an empty one")
+        for i, line in enumerate(commands, 1):
             why = run_verify(line, worktree, base, env)
-            results.append((why is None, f"Verify: {line.strip()}" + (f" → {why}" if why else "")))
+            add(f"verify/{i}", "verify", "failed" if why else "passed", f"Verify: {line.strip()}", why, sha=commit)
         for cid, lines in ticked.items():
-            for what, report in (m.groups() for l in joined(lines) if (m := BROKEN.match(l))):
+            found = [m.groups() for l in joined(lines) if (m := BROKEN.match(l))]
+            if not found and "**hold**" in lines[0]:
+                add(f"{cid}/break", "break", "failed", f"{cid} broken:", "a hold criterion with no broken: line", cid)
+            for what, report in found:
+                key, label = f"{cid}/break/{what}", f"{cid} broken: {what}"
                 if what == "none":
+                    add(key, "break", "not_applicable", label, report.strip(), cid)
                     continue
                 if what not in recorded:
-                    results.append((False, f"{cid} broken: {what} → no arguments in {breaks_file}"))
+                    add(key, "break", "failed", label, f"no arguments in {breaks_file}", cid)
                     continue
-                got, why = run_break(recorded[what], worktree, env)
-                if why is None and normal(got) != normal(report):
-                    why = f"reported {got!r}, the spec says {PR_SUFFIX.sub('', report)!r}"
-                results.append((why is None, f"{cid} broken: {what}" + (f" → {why}" if why else "")))
+                at = recorded[what].get("at")
+                sha = git("rev-parse", "--verify", "-q", f"{at}^{{commit}}", check=False).strip() if at else commit
+                status, got = run_break(recorded[what], worktree, env)
+                if status == "reported":
+                    same = normal(got) == normal(report)
+                    status, got = ("passed", None) if same else (
+                        "failed", f"reported {got!r}, the spec says {PR_SUFFIX.sub('', report)!r}")
+                add(key, "break", status, label, got, cid, sha or None)
     finally:
         git("worktree", "remove", "--force", worktree, check=False)
-    return results
+    return record
+
+
+def runner():
+    """The checker's own revision, and whether its scripts differ from it."""
+    at = lambda *args: subprocess.run(["git", "-C", HERE, *args], capture_output=True, text=True).stdout.strip()
+    return {"revision": at("rev-parse", "HEAD") or None,
+            "dirty": bool(at("status", "--porcelain", "--", "evidence.py", "break.py")),
+            "python": platform.python_version(), "platform": platform.platform()}
 
 
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     p.add_argument("specs", nargs="+")
     p.add_argument("--ref", default="main")
+    p.add_argument("--json", metavar="PATH", help="also write the checks as a report")
     a = p.parse_args(argv)
     sys.stdout.reconfigure(encoding="utf-8")
-    failed = 0
+    report = {"schema": SCHEMA, "runner": runner(),
+              "generated": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
+              "ref": a.ref, "ref_sha": git("rev-parse", "--verify", "-q", a.ref, check=False).strip() or None,
+              "days": []}
     for spec in a.specs:
-        for ok, text in check_spec(spec, a.ref):
-            print(f"{'ok  ' if ok else 'FAIL'}  {text}")
-            failed += not ok
-    print(f"{failed} failed" if failed else "all evidence holds")
-    return 1 if failed else 0
+        try:
+            day = check_spec(spec, a.ref)
+        except Exception as e:  # what the checker did not foresee still leaves a report
+            day = {"spec": {"path": spec.replace(os.sep, "/")}, "checks": [
+                {"id": f"{os.path.basename(spec)}/runner", "kind": "runner", "criterion": None, "sha": None,
+                 "status": "error", "label": os.path.basename(spec), "diagnostic": f"{type(e).__name__}: {e}"}]}
+        report["days"].append(day)
+        for c in day["checks"]:
+            print(f"{MARK[c['status']]}  {c['label']}" + (f" → {c['diagnostic']}" if c["diagnostic"] else ""))
+    checks = [c for d in report["days"] for c in d["checks"]]
+    report["summary"] = {k: {s: sum(c["kind"] == k and c["status"] == s for c in checks) for s in MARK}
+                         for k in dict.fromkeys(c["kind"] for c in checks)}
+    if a.json:
+        with open(a.json, "w", encoding="utf-8", newline="\n") as f:
+            json.dump(report, f, indent=1, ensure_ascii=False)
+            f.write("\n")
+    failed = sum(c["status"] == "failed" for c in checks)
+    errors = sum(c["status"] == "error" for c in checks)
+    print(", ".join(f"{n} {w}" for n, w in ((failed, "failed"), (errors, "could not run")) if n)
+          or "all evidence holds")
+    return 1 if failed or errors else 0
 
 
 if __name__ == "__main__":
