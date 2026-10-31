@@ -29,6 +29,8 @@ asking. Audit every phase as below, then answer what no single phase can:
 
 1. `plan.md`: the phase's goal, what it must be true of the system at its end, and the phases
    either side of it.
+   Run `python scripts/behaviour-index.py` and check the phase against the criteria in force;
+   a day that changes behaviour in force without a `Replaces:` line is a finding.
 2. Every spec in the phase, and the Notes of the days already done that the phase builds on
    (they record what changed).
 3. `docs/lab-notebook.md`'s "Results to date" for what the finished days actually delivered.

@@ -21,6 +21,7 @@
 ## Acceptance criteria
 - [ ] CNN.1 **new** — <checkable by someone who did not write the code>. Red today: <how it
       fails on the code as it is, e.g. "the grep finds two">.
+      Replaces: <earlier ID, only if this changes behaviour it holds> — was: <old behaviour>
 - [ ] CNN.2 **hold** — <true before the change and must stay true after it>.
       broken: <what was broken> → <what the check reported>
 
