@@ -1,4 +1,4 @@
-"""python -m wordtally [--top N] [--stopwords] [--json] [FILE...]: the lines, words and characters of each file.
+"""python -m wordtally [--top N] [--stopwords] [--json] [--pretty] [FILE...]: the lines, words and characters of each file.
 No file, or "-", reads standard input."""
 import argparse
 import json
@@ -44,8 +44,12 @@ def main(argv=None):
                         help="leave common English words out of the --top list")
     parser.add_argument("--json", action="store_true",
                         help="print the counts as one JSON object")
+    parser.add_argument("--pretty", action="store_true",
+                        help="indent JSON output (requires --json)")
     parser.add_argument("files", nargs="*", default=["-"])
     args = parser.parse_args(argv)
+    if args.pretty and not args.json:
+        parser.error("--pretty requires --json")
     rows = []
     tally = Counter()
     common = stopwords() if args.stopwords and args.top else set()
@@ -73,7 +77,7 @@ def main(argv=None):
             obj["total"] = {"lines": total[0], "words": total[1], "characters": total[2]}
         if args.top:
             obj["top"] = [{"word": word, "count": count} for word, count in top]
-        print(json.dumps(obj))
+        print(json.dumps(obj, indent=2 if args.pretty else None))
         return 1 if failed else 0
     width = max((len(str(n)) for c, _ in rows for n in c), default=1)
     for c, name in rows:
