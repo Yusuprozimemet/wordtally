@@ -16,7 +16,7 @@ import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCRIPT = os.path.join(HERE, "pr-names.py")
-GENERIC = ("workflow", "tooling", "dashboard", "docs", "specs", "plan", "ci")
+GENERIC = ("workflow", "tooling", "dashboard", "docs", "specs", "plan", "ci", "change")
 
 
 def load(key=None):
@@ -130,6 +130,9 @@ class KeyTest(unittest.TestCase):
 
 class AreasTest(unittest.TestCase):
     """AREAS: the generic ones, then the ones the project file adds (`areas`)."""
+
+    def test_change_branch_is_allowed(self):
+        self.assertEqual([], problems("change/double", "Double strings", "", []))
 
     def test_the_project_file_adds_areas_to_the_generic_ones(self):
         folder = tempfile.mkdtemp()

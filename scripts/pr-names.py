@@ -44,7 +44,7 @@ def project_areas(path=CONFIG_FILE):
 
 
 # Areas outside the days. A project adds its own to the project file, on purpose.
-AREAS = ("workflow", "tooling", "dashboard", "docs", "specs", "plan", "ci") + project_areas()
+AREAS = ("workflow", "tooling", "dashboard", "docs", "specs", "plan", "ci", "change") + project_areas()
 DAY_BRANCH = re.compile(r"^day-(\d{2})/[0-9A-Za-z]")
 AREA_BRANCH = re.compile(r"^([a-z]+)/[0-9A-Za-z]")
 BRANCH_TRACK = re.compile(r"^day-\d{2}/track-([0-9a-z]+)(?=-|$)")

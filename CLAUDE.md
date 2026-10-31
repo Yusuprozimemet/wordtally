@@ -152,6 +152,8 @@ implementer never commits or pushes.
 
 ## Pitfalls this repository has already hit
 
+- A small out-of-day behaviour change still needs a seen-red test: use [Short specs](specs/README.md#short-specs) when it qualifies.
+
 On Windows, in Git Bash and PowerShell:
 
 - The working tree is CRLF (`core.autocrlf`). Exact-string edits from Python fail on it: use the

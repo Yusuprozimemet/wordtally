@@ -28,7 +28,7 @@ name: PR checks
 #    disagreed showed a wrong state after they merged (a `track-b` branch for track B1, one Jira key against another,
 #    a `claude/...` branch).
 #
-# 6. A track's new tests are seen red (scripts/track-red.py): each test its spec's `new` criteria
+# 6. A track or short spec's new tests are seen red (scripts/track-red.py): each test its spec's `new` criteria
 #    name fails by assertion where the branch started and passes on it. #15 and #18 lacked the record.
 #
 # Recovery is automatic for the first two and the fifth's title and description: editing the description fires the `edited`
@@ -193,7 +193,7 @@ jobs:
         run: python scripts/pr-names.py "$BASE_SHA" "$HEAD_SHA"
 
   seen-red:
-    name: Track tests seen red
+    name: Track and short-spec tests seen red
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
