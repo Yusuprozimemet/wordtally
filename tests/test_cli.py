@@ -111,6 +111,29 @@ class CliTest(unittest.TestCase):
         self.assertEqual((r.returncode, r.stdout),
                          (0, f" 1  5 10 {c}\n2 a\n2 b\n"))
 
+    def test_min_frequency_filters_plain_and_json_top(self):
+        data = b"b x b x c the the the\n"
+        plain = run_with_input(data, "--top", "3", "--stopwords", "--min-frequency", "2")
+        result = run_with_input(data, "--json", "--top", "3", "--stopwords", "--min-frequency", "2")
+        self.assertEqual((plain.returncode, plain.stdout), (0, " 1  8 22 -\n2 b\n2 x\n"))
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(json.loads(result.stdout)["top"], [{"word": "b", "count": 2},
+                                                          {"word": "x", "count": 2}])
+        empty = run_with_input(data, "--json", "--top", "3", "--min-frequency", "4")
+        self.assertEqual(json.loads(empty.stdout)["top"], [])
+
+    def test_min_frequency_requires_top(self):
+        r = run_with_input(b"cat\n", "--min-frequency", "2")
+        self.assertEqual((r.returncode, r.stdout), (2, ""))
+        self.assertIn("--min-frequency requires --top", r.stderr)
+
+    def test_min_frequency_requires_positive_whole_number(self):
+        for value in ("0", "-1", "1.5", "no"):
+            with self.subTest(value=value):
+                r = run_with_input(b"cat\n", "--top", "2", "--min-frequency", value)
+                self.assertEqual((r.returncode, r.stdout), (2, ""))
+                self.assertIn("whole number of at least 1", r.stderr)
+
     def test_top_below_one_is_a_usage_error(self):
         with tempfile.TemporaryDirectory() as d:
             a = write(d, "a.txt", b"one\n")

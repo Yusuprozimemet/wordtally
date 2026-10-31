@@ -17,7 +17,7 @@ def whole_number(text):
     except ValueError:
         n = 0
     if n < 1:
-        raise argparse.ArgumentTypeError(f"--top takes a whole number of at least 1, not {text!r}")
+        raise argparse.ArgumentTypeError(f"takes a whole number of at least 1, not {text!r}")
     return n
 
 
@@ -40,6 +40,8 @@ def main(argv=None):
     parser.add_argument("--version", action="version", version=f"wordtally {__version__}")
     parser.add_argument("--top", metavar="N", type=whole_number,
                         help="also print the N most frequent words")
+    parser.add_argument("--min-frequency", metavar="N", type=whole_number,
+                        help="only list words counted at least N times (requires --top)")
     parser.add_argument("--stopwords", action="store_true",
                         help="leave common English words out of the --top list")
     parser.add_argument("--json", action="store_true",
@@ -50,6 +52,8 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if args.pretty and not args.json:
         parser.error("--pretty requires --json")
+    if args.min_frequency is not None and not args.top:
+        parser.error("--min-frequency requires --top")
     rows = []
     tally = Counter()
     common = stopwords() if args.stopwords and args.top else set()
@@ -70,6 +74,8 @@ def main(argv=None):
         total = tuple(sum(c[i] for c, _ in rows) for i in range(3))
         rows.append((total, "total"))
     top = sorted(tally.items(), key=lambda kv: (-kv[1], kv[0]))[:args.top] if args.top else []
+    if args.min_frequency is not None:
+        top = [(word, count) for word, count in top if count >= args.min_frequency]
     if args.json:
         obj = {"files": [{"name": name, "lines": c[0], "words": c[1], "characters": c[2]}
                          for c, name in files]}
