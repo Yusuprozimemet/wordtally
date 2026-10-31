@@ -1,21 +1,22 @@
 """Run each test a track's `new` criteria name, on the code before the track and on the track, and
 print one line per test.
 
-    python scripts/track-red.py --branch <day-NN/track-x-slug> [--base main]
+    python scripts/track-red.py --branch <day-NN/track-x-slug|change/slug> [--base main]
 
 A `new` criterion must fail on the code before the day (specs/README.md); the `seen red:` record was
 missing from #15 and #18. CI runs this on every PR ("Track tests seen red"). It runs the tests again;
 it cannot show the track's author did. What it checks comes from the spec, never the diff (#27 added
 tests that pin what holds, and is not a track):
 
-- Any branch but `day-NN/track-<x>-<slug>` passes. The spec is `specs/day-NN-*.md` on the base.
+- A day track reads its spec from the base. A `change/<slug>` reads
+  `specs/changes/<slug>.md` from the head and owns all its criteria. Other branches pass.
 - A one-row Tracks table owns every criterion; otherwise a track owns what its Work cell names
   (`C2.1`, `C2.1–C2.3`), and a `new` criterion no row names fails.
 - Only a `new` criterion's `Test:` field is read: the backticked names right after it. All `hold`
   passes; a `new` one with no `Test:`, or a name that matches no test here, fails.
 - The spec must be readable, or a `new` criterion passes unseen: no Acceptance criteria section,
   none in it, an item at the margin that is not `- [ ] CN.N **new**` or `**hold**`, or a repeated
-  id fails, whichever track the branch is.
+  id fails, whichever track the branch is. A short spec's IDs must match its slug.
 - Each test runs alone on the base (seen-red.py's `on_base`) and here. There it must report
   "FAILED (failures=N)", not `errors=` (an import, not the assertion); here, "OK".
 
@@ -35,7 +36,8 @@ _spec.loader.exec_module(seen_red)
 git = seen_red.git
 
 TRACK_BRANCH = re.compile(r"^day-(\d{2})/track-([0-9a-z]+)(?=-|$)")  # pr-names.py's BRANCH_TRACK
-CRITERION = re.compile(r"^- \[[ xX]\] (C\d+\.\d+) \*\*(new|hold)\*\*", re.M)
+CHANGE_BRANCH = re.compile(r"^change/([a-z0-9]+(?:-[a-z0-9]+)*)$")
+CRITERION = re.compile(r"^- \[[ xX]\] (C\d+\.\d+|S-[a-z0-9]+(?:-[a-z0-9]+)*\.\d+) \*\*(new|hold)\*\*", re.M)
 LIST_ITEM = re.compile(r"^[-*+] .*$", re.M)  # an item at the margin; a criterion's wrap is indented
 TEST_FIELD = re.compile(r"Test:\s*((?:`[^`]+`(?:\s*,?\s*(?:and\s+)?(?=`))?)+)")
 NAMED = re.compile(r"C(\d+)\.(\d+)(?:\s*[–-]\s*C?\1\.(\d+))?")
@@ -128,29 +130,50 @@ def main(args=None):
     sys.stdout.reconfigure(encoding="utf-8")  # the arrow; a Windows console's default is cp1252
     os.chdir(git("rev-parse", "--show-toplevel").strip())
 
-    m = TRACK_BRANCH.match(a.branch)
-    if not m:
+    m, change = TRACK_BRANCH.match(a.branch), CHANGE_BRANCH.fullmatch(a.branch)
+    if a.branch.startswith("change/") and not change:
+        print("FAIL: change branch slug must contain lowercase letters, numbers and single hyphens")
+        return 1
+    if not m and not change:
         print(f"not applicable: `{a.branch}` is not a track branch (day-NN/track-<x>-<slug>)")
         return 0
-    day, track = m.groups()
+    day, track = m.groups() if m else (None, None)
     try:
         base = git("rev-parse", "--short", f"{a.base}^{{commit}}").strip()
-        paths = [f for f in git("ls-tree", "--name-only", base, "specs/").split()
-                 if re.fullmatch(rf"specs/day-{day}-.*\.md", f)]
+        paths = ([f for f in git("ls-tree", "--name-only", base, "specs/").split()
+                  if re.fullmatch(rf"specs/day-{day}-.*\.md", f)] if m else [])
     except subprocess.CalledProcessError as e:
         print(f"track-red.py: cannot read {a.base}: {e.stderr.strip()}", file=sys.stderr)
         return 2
-    if len(paths) != 1:
+    if change:
+        slug = change.group(1)
+        path = f"specs/changes/{slug}.md"
+        try:
+            with open(path, encoding="utf-8") as f:
+                text = f.read()
+        except FileNotFoundError:
+            print(f"FAIL: short spec {path} is missing on the head")
+            return 1
+        ours, problems = criteria(text), unread(text)
+        problems += [f"{c} does not belong to short spec {slug}" for c in ours
+                     if not re.fullmatch(rf"S-{re.escape(slug)}\.\d+", c)]
+        label = f"Short spec {slug}"
+    elif len(paths) != 1:
         print(f"FAIL: {len(paths)} specs match specs/day-{day}-*.md on {base}; the check needs one")
         return 1
-    text = git("show", f"{base}:{paths[0]}")
-    ours, problems = owned(text, track)
-    problems = unread(text) + problems
+    else:
+        text = git("show", f"{base}:{paths[0]}")
+        ours, problems = owned(text, track)
+        problems = unread(text) + problems
+        label = f"Day {day} track {track.upper()}"
     new = {c: names for c, (tag, names) in ours.items() if tag == "new"}
+    if change and not new:
+        problems.append(f"short spec {slug} has no new criterion; a behaviour change needs one")
     problems += [f"{c} is new and has no Test: field naming a test in backticks"
                  for c, names in new.items() if not names]
     if not new and not problems:
-        print(f"not applicable: track {track.upper()} of Day {day} owns no new criterion "
+        subject = f"track {track.upper()} of Day {day}" if m else f"short spec {slug}"
+        print(f"not applicable: {subject} owns no new criterion "
               f"(hold: {', '.join(ours) or 'none'})")
         return 0
 
@@ -181,7 +204,7 @@ def main(args=None):
             print(f"seen red: {t} ({c}) on {base} → {line}; on the head → OK")
     for problem in problems:
         print(f"FAIL: {problem}")
-    print(f"Day {day} track {track.upper()}: {red} of {sum(map(len, new.values()))} tests the new criteria "
+    print(f"{label}: {red} of {sum(map(len, new.values()))} tests the new criteria "
           f"name fail on {base} by assertion and pass on the head.")
     return 1 if problems else 0
 

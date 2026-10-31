@@ -11,6 +11,23 @@ Spec-driven development. **No code without a spec. No spec without checkable acc
 4. Copy the acceptance criteria into the PR description and tick them.
 5. The day is done when every box is ticked and **Verify** passes on `main`.
 
+## Short specs
+
+For one small behaviour change outside the days that fits one PR and touches no contract test
+or frozen file, use a short spec. Do not use one for work covered by a day's criteria or for a
+change needing a `Replaces:` line. Use the day workflow for those.
+
+On `change/<slug>` (lowercase letters, numbers and single hyphens), write
+`specs/changes/<slug>.md` using [`_short-template.md`](_short-template.md). Its criteria use
+`S-<slug>.N` IDs, `new` or `hold` tags and `Test:` fields, as in a day spec. Spec and code
+land together: no separate spec-change or closing PR. Put the `seen red:` line and the
+`broken:` lines in the PR. Run `python scripts/track-red.py --branch change/<slug>` to check each new criterion's
+test against base code and the head; CI runs the same check. Hold checks must also
+be broken on purpose as in the day rules below.
+Tick each criterion in the same PR once its seen-red or broken evidence is in the PR body.
+Ticked short-spec criteria join the behaviour index; a later day replaces one with
+`Replaces: S-<slug>.N`.
+
 ## Rules
 
 - **The spec is the contract.** Found work outside it? Add a line to that day's *Notes*

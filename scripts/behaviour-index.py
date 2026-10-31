@@ -16,6 +16,7 @@ SPEC_DRIFT = importlib.util.spec_from_file_location("spec_drift", os.path.join(H
 sd = importlib.util.module_from_spec(SPEC_DRIFT)
 SPEC_DRIFT.loader.exec_module(sd)
 DAY_FILE = re.compile(r"day-(\d+)-[^/\\]+\.md$")
+SHORT_ID = r"S-[a-z0-9]+(?:-[a-z0-9]+)*\.\d+"
 REPLACES = re.compile(r"^[ \t]*Replaces:(.*)$", re.M)
 WAS = re.compile(r"\s\u2014\s*was:\s*\S")
 
@@ -23,27 +24,35 @@ WAS = re.compile(r"\s\u2014\s*was:\s*\S")
 def collect(specs_dir):
     """Read day specs in numeric order, preserving the parser's criterion claims and tests."""
     rows = []
-    problems = {"unknown": [], "order": [], "duplicate": [], "malformed": [], "missing_id": []}
+    problems = {"unknown": [], "order": [], "duplicate": [], "malformed": [], "missing_id": [], "short_replaces": []}
     days = sorted((int(m.group(1)), name) for name in os.listdir(specs_dir)
                   if (m := DAY_FILE.fullmatch(name)))
-    for day, filename in days:
+    changes_dir = os.path.join(specs_dir, "changes")
+    changes = [(None, "changes/" + name) for name in sorted(os.listdir(changes_dir)) if name.endswith(".md")] if os.path.isdir(changes_dir) else []
+    for day, filename in days + changes:
         path = os.path.join(specs_dir, filename)
         with open(path, encoding="utf-8-sig", newline=None) as f:
             text = f.read()
+        if day is None and REPLACES.search(text):
+            problems["short_replaces"].append(f"{filename}: Replaces: is not allowed in a short spec")
         # One block per criterion, split as criteria() splits, and parsed on its own, so a
         # Replaces: line always belongs to the criterion whose block holds it.
         for block in re.split(r"^(?=- \[[ x]\])", sd.section(text, "Acceptance criteria"), flags=re.M):
-            parsed = sd.criteria(block) if re.match(r"- \[[ x]\]", block) else []
+            short_id = re.match(rf"- \[[ x]\] ({SHORT_ID})\s+", block) if day is None else None
+            parse_block = block.replace(short_id.group(1), "C0.0", 1) if short_id else block
+            parsed = sd.criteria(parse_block) if re.match(r"- \[[ x]\]", block) else []
             if not parsed:
                 continue
             crit = parsed[0]
+            if short_id:
+                crit["id"] = short_id.group(1)
             row = {"day": day, "id": crit["id"], "tag": crit["kind"] or "untagged",
                    "claim": crit["claim"], "tests": crit["tests"], "spec": filename,
                    "ticked": crit["ticked"], "replaces": []}
             if not crit["id"]:
                 problems["missing_id"].append(f"{filename}: {crit['claim']}")
-            for line in REPLACES.findall(block):
-                ids = re.findall(r"\bC\d+\.\d+\b", line.split("\u2014")[0])
+            for line in REPLACES.findall(block) if day is not None else []:
+                ids = re.findall(rf"\b(?:C\d+\.\d+|{SHORT_ID})\b", line.split("\u2014")[0])
                 if not ids or not WAS.search(line):
                     problems["malformed"].append(f"{filename} {crit['id'] or ''}: Replaces:{line}")
                 row["replaces"].extend(ids)
@@ -62,7 +71,7 @@ def collect(specs_dir):
             if not prior:
                 problems["unknown"].append(f"{row['spec']} {row['id']}: {target}")
                 continue
-            if not any(old["day"] < row["day"] for old in prior):
+            if not any(old["day"] is None or old["day"] < row["day"] for old in prior):
                 problems["order"].append(f"{row['spec']} {row['id']}: {target}")
                 continue
             if target in replaced:
@@ -84,11 +93,12 @@ def markdown(rows, problems):
     lines = [f"{active} criteria in force, {retired} replaced, {open_} unticked", "",
              "| Day | ID | Tag | Claim | Tests | Spec file |", "|---:|---|---|---|---|---|"]
     for r in active_rows:
-        cells = [f"{r['day']:02d}", r["id"] or "", r["tag"], r["claim"], ", ".join(r["tests"]), r["spec"]]
+        cells = [f"{r['day']:02d}" if r["day"] is not None else "-", r["id"] or "", r["tag"], r["claim"], ", ".join(r["tests"]), r["spec"]]
         lines.append("| " + " | ".join(c.replace("|", "\\|").replace("\n", " ") for c in cells) + " |")
     labels = {"unknown": "Unknown replacement IDs", "order": "Replacement is not from an earlier day",
               "duplicate": "Criteria replaced more than once",
-              "malformed": "Replaces: lines without an ID or — was:", "missing_id": "Criteria without IDs"}
+              "malformed": "Replaces: lines without an ID or — was:", "missing_id": "Criteria without IDs",
+              "short_replaces": "Replaces: in short specs"}
     for key, title in labels.items():
         if problems[key]:
             lines.extend(["", f"## {title}", "", *[f"- {p}" for p in problems[key]]])

@@ -18,6 +18,7 @@ class BehaviourIndexTests(unittest.TestCase):
 
     def write(self, name, body, binary=False):
         path = os.path.join(self.specs, name)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
         data = body.encode("utf-8")
         if binary:
             data = data.replace(b"\n", b"\r\n")
@@ -30,6 +31,34 @@ class BehaviourIndexTests(unittest.TestCase):
     def run_index(self, *args):
         return subprocess.run([sys.executable, SCRIPT, "--specs", self.specs, *args],
                               capture_output=True, text=True, encoding="utf-8")
+
+    def test_short_spec_is_in_force_after_days_and_in_json(self):
+        self.write("day-01-a.md", "## Acceptance criteria\n- [x] C01.1 **hold** — Day.\n")
+        self.write("changes/x.md", "## Acceptance criteria\n- [x] S-x.1 **new** — Short. Test: `XTest`\n")
+        path = os.path.join(self.specs, "rows.json")
+        result = self.run_index("--json", path)
+        self.assertEqual(0, result.returncode, result.stdout)
+        self.assertLess(result.stdout.index("| 01 |"), result.stdout.index("| - | S-x.1 |"))
+        with open(path, encoding="utf-8") as f:
+            rows = json.load(f)
+        self.assertEqual((None, "changes/x.md", ["XTest"]),
+                         (rows[-1]["day"], rows[-1]["spec"], rows[-1]["tests"]))
+
+    def test_day_replaces_short_criterion(self):
+        self.write("changes/x.md", "## Acceptance criteria\n- [x] S-x.1 **new** — Old.\n")
+        self.write("day-01-a.md", "## Acceptance criteria\n- [x] C01.1 **new** — New.\n"
+                   "      Replaces: S-x.1 — was: Old.\n")
+        result = self.run_index()
+        self.assertEqual(0, result.returncode, result.stdout)
+        self.assertIn("1 criteria in force, 1 replaced, 0 unticked", result.stdout)
+        self.assertNotIn("| - | S-x.1 |", result.stdout)
+
+    def test_short_spec_cannot_replace(self):
+        self.write("changes/x.md", "## Acceptance criteria\n- [x] S-x.1 **new** — New.\n"
+                   "      Replaces: C01.1 — was: Old.\n")
+        result = self.run_index()
+        self.assertEqual(1, result.returncode, result.stdout)
+        self.assertIn("Replaces: is not allowed in a short spec", result.stdout)
 
     def test_ticked_is_in_force_and_unticked_is_not(self):
         self.write("day-01-first.md", "## Acceptance criteria\n- [x] C01.1 **new** — First claim. Test: `FirstTest`\n- [ ] C01.2 **hold** — Open claim.\n")

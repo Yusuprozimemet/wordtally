@@ -121,6 +121,53 @@ class TrackRedTest(unittest.TestCase):
                              capture_output=True, text=True, encoding="utf-8")
         return run.returncode, run.stdout + run.stderr
 
+    def short_red(self, test="T.test_double_a_string", slug="double", tick=" "):
+        self.git("add", ".")
+        self.git("commit", "-q", "-m", "base")
+        self.write(f"specs/changes/{slug}.md", "## Acceptance criteria\n"
+                   f"- [{tick}] S-{slug}.1 **new** — strings double. Test: `{test}`.\n")
+        self.write("app.py", "def double(x):\n    return x * 2\n")
+        run = subprocess.run([sys.executable, SCRIPT, "--branch", f"change/{slug}"], cwd=self.dir,
+                             capture_output=True, text=True, encoding="utf-8")
+        return run.returncode, run.stdout + run.stderr
+
+    def test_short_spec_on_head_requires_red_then_green(self):
+        code, out = self.short_red()
+        self.assertEqual(0, code, out)
+        self.assertIn("seen red: tests.test_app.T.test_double_a_string (S-double.1)", out)
+
+    def test_ticked_short_spec_new_test_is_checked(self):
+        code, out = self.short_red(tick="x")
+        self.assertEqual(0, code, out)
+        self.assertIn("seen red: tests.test_app.T.test_double_a_string (S-double.1)", out)
+        self.assertIn("1 of 1 tests", out)
+
+    def test_short_spec_test_passing_on_base_is_rejected(self):
+        code, out = self.short_red(test="T.test_double")
+        self.assertEqual(1, code, out)
+        self.assertIn("it does not see the change", out)
+
+    def test_short_spec_missing_or_wrong_id_fails(self):
+        self.git("add", ".")
+        self.git("commit", "-q", "-m", "base")
+        def run():
+            return subprocess.run([sys.executable, SCRIPT, "--branch", "change/double"], cwd=self.dir,
+                                  capture_output=True, text=True, encoding="utf-8")
+        self.assertIn("is missing on the head", run().stdout)
+        self.write("specs/changes/double.md", "## Acceptance criteria\n- [ ] S-other.1 **hold** — x\n")
+        result = run()
+        self.assertEqual(1, result.returncode, result.stdout)
+        self.assertIn("does not belong to short spec double", result.stdout)
+
+    def test_hold_only_short_spec_fails(self):
+        self.git("add", ".")
+        self.git("commit", "-q", "-m", "base")
+        self.write("specs/changes/double.md", "## Acceptance criteria\n- [ ] S-double.1 **hold** — x\n")
+        run = subprocess.run([sys.executable, SCRIPT, "--branch", "change/double"], cwd=self.dir,
+                             capture_output=True, text=True, encoding="utf-8")
+        self.assertEqual(1, run.returncode, run.stdout)
+        self.assertIn("FAIL: short spec double has no new criterion; a behaviour change needs one", run.stdout)
+
     def test_a_test_red_on_the_base_and_green_on_the_head_passes(self):
         code, out = self.track_red()
         self.assertEqual(code, 0, out)
