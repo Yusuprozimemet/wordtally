@@ -160,6 +160,18 @@ jobs:
       - run: python scripts/service-wiring.py
         if: hashFiles('services/**') != ''  # it lists services/; with none it would fail on every PR
 
+  behaviour-index:
+    name: "Replaces: lines name real earlier criteria"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install numpy
+      - run: python scripts/test_behaviour_index.py
+      - run: python scripts/behaviour-index.py
+
   names:
     name: Branch, title, commits and Jira keys agree
     runs-on: ubuntu-latest

@@ -14,6 +14,8 @@ anything.
 A day number. Read `specs/day-NN-*.md`, the rules in `specs/README.md` and `specs/_template.md`,
 the phase this day belongs to in `plan.md`, and the Notes of the day before. Then find everything
 earlier days left for this one (check 7).
+Run `python scripts/behaviour-index.py` and check the day against the criteria in force: a day
+that changes behaviour in force without a `Replaces:` line is a finding.
 
 ## What to check
 

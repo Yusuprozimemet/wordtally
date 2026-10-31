@@ -93,6 +93,12 @@ Spec-driven development. **No code without a spec. No spec without checkable acc
   The receiving spec picks it up by citing the ID; naming the day does not. `spec-drift.py`
   lists what no later day picks up, and any track a PR announces ("E1c, next") that no branch
   ever names.
+- **When a criterion changes behaviour in force, name what it replaces.** Put
+  `Replaces: C12.3 — was: <the old behaviour, quoted or in one sentence>` inside the new
+  criterion's block, in the spec-change PR like any criterion wording. A reviewer then sees the
+  old and the new behaviour, and `python scripts/behaviour-index.py` retires the old criterion
+  once the new one is ticked; a `Replaces:` line without an ID or `— was:` fails it. Never edit
+  the replaced criterion's file.
 - Changing a spec is normal. Change it in a PR *before* the work, not after.
 - Specs written before the `new`/`hold` rule get their criteria tagged in that day's
   spec-change PR, when the spec is read against the code.
