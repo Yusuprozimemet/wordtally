@@ -7,14 +7,14 @@
 A frequency threshold lets users omit rare words from the top list.
 
 ## Acceptance criteria
-- [x] S-min-frequency.1 **new** ? With `--top`, the threshold filters the top words in plain and JSON output, including an empty JSON list when none qualify; stopwords remain excluded and ties remain alphabetical. Test: `tests.test_cli.CliTest.test_min_frequency_filters_plain_and_json_top`.
+- [x] S-min-frequency.1 **new** — With `--top`, the threshold filters the top words in plain and JSON output, including an empty JSON list when none qualify; stopwords remain excluded and ties remain alphabetical. Test: `tests.test_cli.CliTest.test_min_frequency_filters_plain_and_json_top`.
       Red today: the CLI rejects `--min-frequency`.
-- [x] S-min-frequency.2 **new** ? `--min-frequency` without `--top` exits 2 with a usage error and no standard output. Test: `tests.test_cli.CliTest.test_min_frequency_requires_top`.
+- [x] S-min-frequency.2 **new** — `--min-frequency` without `--top` exits 2 with a usage error and no standard output. Test: `tests.test_cli.CliTest.test_min_frequency_requires_top`.
       Red today: the CLI does not explain the dependency.
-- [x] S-min-frequency.3 **new** ? N must be a whole number of at least 1; invalid values exit 2 with a usage error and no standard output. Test: `tests.test_cli.CliTest.test_min_frequency_requires_positive_whole_number`.
+- [x] S-min-frequency.3 **new** — N must be a whole number of at least 1; invalid values exit 2 with a usage error and no standard output. Test: `tests.test_cli.CliTest.test_min_frequency_requires_positive_whole_number`.
       Red today: the CLI does not report the number requirement for this option.
-- [x] S-min-frequency.4 **hold** ? `--top` without the option keeps its existing output. Test: `tests.test_cli.CliTest.test_top_lists_the_most_frequent_words_after_the_total`.
-      broken: top words sorted by ascending frequency ? AssertionError: Tuples differ
+- [x] S-min-frequency.4 **hold** — `--top` without the option keeps its existing output. Test: `tests.test_cli.CliTest.test_top_lists_the_most_frequent_words_after_the_total`.
+      broken: top words sorted by ascending frequency → AssertionError: Tuples differ
 
 ## Verify
 ```bash
