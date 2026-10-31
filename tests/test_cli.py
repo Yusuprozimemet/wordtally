@@ -151,6 +151,21 @@ class CliTest(unittest.TestCase):
                          (0, '{"files": [{"name": "-", "lines": 1, "words": 7, "characters": 27}], '
                              '"top": [{"word": "cat", "count": 2}, {"word": "dog", "count": 1}]}\n'))
 
+    def test_pretty_json(self):
+        with tempfile.TemporaryDirectory() as d:
+            a = write(d, "a.txt", b"cat cat\n")
+            b = write(d, "b.txt", b"dog\n")
+            compact = run("--json", "--top", "2", a, b)
+            pretty = run("--json", "--pretty", "--top", "2", a, b)
+        self.assertEqual(pretty.returncode, 0)
+        self.assertEqual(pretty.stderr, "")
+        self.assertEqual(pretty.stdout, json.dumps(json.loads(compact.stdout), indent=2) + "\n")
+
+    def test_pretty_requires_json(self):
+        r = run_with_input(b"cat\n", "--pretty")
+        self.assertEqual((r.returncode, r.stdout), (2, ""))
+        self.assertIn("--pretty requires --json", r.stderr)
+
     def test_json_matches_the_plain_output(self):
         with tempfile.TemporaryDirectory() as d:
             a = write(d, "a.txt", b"the cat\n")
