@@ -6,6 +6,7 @@ import os
 import sys
 from collections import Counter
 
+from wordtally import __version__
 from wordtally.count import counts, words
 
 
@@ -36,6 +37,7 @@ def stopwords():
 
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="python -m wordtally")
+    parser.add_argument("--version", action="version", version=f"wordtally {__version__}")
     parser.add_argument("--top", metavar="N", type=whole_number,
                         help="also print the N most frequent words")
     parser.add_argument("--stopwords", action="store_true",

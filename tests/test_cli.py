@@ -32,6 +32,10 @@ def write(d, name, data):
 
 
 class CliTest(unittest.TestCase):
+    def test_version_prints_version_and_exits(self):
+        r = run("--version")
+        self.assertEqual((r.returncode, r.stdout, r.stderr), (0, "wordtally 0.1.0\n", ""))
+
     def test_one_file_prints_lines_words_and_characters(self):
         with tempfile.TemporaryDirectory() as d:
             a = write(d, "a.txt", b"one two three\n")
